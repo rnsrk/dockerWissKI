@@ -1,0 +1,58 @@
+version: '3.7'
+
+services:
+
+  drupal:
+    image: rnsrk/drupal_wisski:9.2.5
+    restart: always
+    build:
+      context: ./drupal_context 
+      dockerfile: Dockerfile
+    volumes: 
+#      - ./drupal-private-files:/var/www/private_files
+#      - drupal-data:/opt/drupal/web
+       - ./drupal_context/settings.php:/opt/drupal/web/sites/default/settings.php
+       - ./drupal_context/.htaccess:/opt/drupal/web/.htaccess
+    ports:
+      - "3000:80"
+
+  mariadb:
+    image: mariadb:10.4
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}      
+#    volumes:
+#      - mariadb-data:/var/lib/mysql
+    ports:
+      - "3309:3306"
+
+  solr:
+    image: solr:8.9.0
+    restart: always
+ #   volumes:
+ #     - solr-data:/opt/solr-8.9.0
+    environment:
+      SOLR_JAVA_MEM: "-Xms256M -Xmx512M"
+    ports:
+      - "8983:8983"
+
+  graphdb:
+    image: rnsrk/graphdb:9.9.0
+    build: 
+      context: ./graphdb_context
+      dockerfile: Dockerfile
+#    volumes:
+#      - graphdb-data:/opt/graphdb
+    ports:
+      - "7200:7200"
+
+#volumes:
+#  drupal-data:
+#  graphdb-data:
+#  mariadb-data:
+#  solr-data:
+
+# vim: tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab
