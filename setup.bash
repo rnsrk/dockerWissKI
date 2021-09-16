@@ -90,6 +90,8 @@ do
         echo -e "${GREEN}Okay then...${NC}"
     fi
 done
+unset FINISHED
+
 printf "\n"
 echo -e "${GREEN}Writing credentials to .env. ${NC}"
 
@@ -99,6 +101,100 @@ MYSQL_PASSWORD=${USERPW}
 MYSQL_DATABASE=${DBNAME}" > .env
 
 echo -e "${GREEN}and replace credentials in settings.php. ${NC}"
-sed -i "s/'database' =>.*/'database' => '${DBNAME}'/" ./drupal_context/settings.php 
-sed -i "s/'username' =>.*/'username' => '${DBUSER}'/" ./drupal_context/settings.php 
-sed -i "s/'password' =>.*/'password' => '${USERPW}'/" ./drupal_context/settings.php 
+sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
+sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
+sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php 
+
+printf "\n"
+
+echo -e "${GREEN}Lets define the ports for your services. Be sure that they are not busy!${NC}"
+printf "\n"
+
+FINISHED=false
+re='^[0-9]+$'
+while [ $FINISHED == false ]
+do
+    echo -e "${YELLOW}What should be the port of Drupal (default 80)?${NC}"
+    while [[ -z $DRUPALPORT ]]
+    do
+        read DRUPALPORT
+        if [[ -z $DRUPALPORT ]]
+        then
+            DRUPALPORT=80
+            echo -e "${GREEN}Take default port ${DRUPALPORT}.${NC}"
+        fi
+        if ! [[ $DRUPALPORT =~ $re ]] ; then
+            echo -e "${RED}Drupal port has to be a integer!${NC}"
+        fi
+    done
+
+    echo -e "${YELLOW}What should be the port of MariaDB (default 3306)?${NC}"
+    while [[ -z $MARIADBPORT ]]
+    do
+        read MARIADBPORT
+        if [[ -z $MARIADBPORT ]]
+        then
+            MARIADBPORT=3306
+            echo -e "${GREEN}Take default port ${MARIADBPORT}.${NC}"
+        fi
+        if ! [[ $MARIADBPORT =~ $re ]] ; then
+            echo -e "${RED}MariaDB port has to be a integer, like 3306.${NC}"
+        fi
+    done
+
+    echo -e "${YELLOW}What should be the port of Graphdb (default 7200)?${NC}"
+    while [[ -z $GRAPHDBPORT ]]
+    do
+        read GRAPHDBPORT
+        if [[ -z $GRAPHDBPORT ]]
+        then
+            GRAPHDBPORT=7200
+            echo -e "${GREEN}Take default port ${GRAPHDBPORT}.${NC}"
+        fi
+        if ! [[ $GRAPHDBPORT =~ $re ]] ; then
+            echo -e "${RED}GraphDB port has to be a integer, like 7200.${NC}"
+        fi
+    done
+
+    echo -e "${YELLOW}Which port should be used for SORL (default 8983)?${NC}"
+    while [[ -z $SOLRPORT ]]
+    do
+        read SOLRPORT
+        if [[ -z $SOLRPORT ]]
+        then
+            SOLRPORT=8983
+            echo -e "${GREEN}Take default port ${SOLRPORT}.${NC}"
+        fi
+        if ! [[ $SOLRPORT =~ $re ]] ; then
+            echo -e "${RED}SOLR port has to be a integer, like 8983.${NC}"
+        fi
+    done
+    printf "\n"
+    echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"   
+    echo -e "${GREEN}MariaDB port: ${MARIADBPORT}${NC}"
+    echo -e "${GREEN}GraphDB port: ${GRAPHDBPORT}${NC}"
+    echo -e "${GREEN}SOLR port: ${SOLRPORT}${NC}"
+    echo -e "${YELLOW}Is that correct? (Y/n)"
+    read SURE
+    if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
+    then 
+        export DRUPALPORT
+        export MARIADBPORT
+        export GRAPHDBPORT
+        export SOLRPORT
+        FINISHED=true
+    else
+        unset DRUPALPORT
+        unset MARIADBPORT
+        unset GRAPHDBPORT
+        unset SOLRPORT
+        echo -e "${GREEN}Okay then...${NC}"
+    fi
+done
+unset FINISHED
+
+echo -e "${GREEN}Add ports to .env. ${NC}"
+echo "DRUPAL_PORT=${DRUPALPORT}
+MARIADB_PORT=${MARIADBPORT}
+GRAPHDB_PORT=${GRAPHDBPORT}
+SOLR_PORT=${SOLRPORT}" >> .env

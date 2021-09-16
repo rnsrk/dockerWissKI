@@ -772,9 +772,9 @@ $settings['entity_update_batch_size'] = 50;
 #   include $app_root . '/' . $site_path . '/settings.local.php';
 # }
 $databases['default']['default'] = array (
-  'database' => 'wisski'
-  'username' => 'wisski'
-  'password' => 'wisski'
+  'database' => 'wisski',
+  'username' => 'wisski',
+  'password' => 'wisski',
   'prefix' => '',
   'host' => 'mariadb',
   'port' => '3306',
