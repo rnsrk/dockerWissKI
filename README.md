@@ -19,7 +19,7 @@ Open `drupal-context/settings.php` and paste the credentials there, too. Go to t
   'port' => 'DBPORT',
  ~~~
 ## Start
-Run `docker-compose up -d` to start containers. 
+Run `docker-compose up -d` to start containers.
 
 ## Docker-compose environment
 There are four services corresponding to four containers

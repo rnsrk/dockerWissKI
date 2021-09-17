@@ -200,4 +200,9 @@ cp ./drupal_context/example-settings.php ./drupal_context/settings.php
 sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
 sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
 sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
-sed -i "s/'port' =>.*/'port' => '${MARIADBPORT}',/" ./drupal_context/settings.php 
+sed -i "s/'port' =>.*/'port' => '${MARIADBPORT}',/" ./drupal_context/settings.php
+
+
+printf "\n"
+echo -e "${GREEN}Type docker-compose up -d to start the containers in the background${NC}"
+echo -e "${GREEN}then visit http://localhost:${DRUPALPORT} to start the Drupal installer.${NC}"
