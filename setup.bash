@@ -100,11 +100,6 @@ MYSQL_USER=${DBUSER}
 MYSQL_PASSWORD=${USERPW}
 MYSQL_DATABASE=${DBNAME}" > .env
 
-echo -e "${GREEN}and replace credentials in settings.php. ${NC}"
-sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
-sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
-sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php 
-
 printf "\n"
 
 echo -e "${GREEN}Lets define the ports for your services. Be sure that they are not busy!${NC}"
@@ -193,8 +188,16 @@ do
 done
 unset FINISHED
 
-echo -e "${GREEN}Add ports to .env. ${NC}"
+echo -e "${GREEN}Add ports to .env ${NC}"
 echo "DRUPAL_PORT=${DRUPALPORT}
 MARIADB_PORT=${MARIADBPORT}
 GRAPHDB_PORT=${GRAPHDBPORT}
 SOLR_PORT=${SOLRPORT}" >> .env
+
+printf "\n"
+echo -e "${GREEN}create and save credentials in settings.php. ${NC}"
+cp ./drupal_context/example-settings.php ./drupal_context/settings.php
+sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
+sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
+sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
+sed -i "s/'port' =>.*/'port' => '${MARIADBPORT}',/" ./drupal_context/settings.php 

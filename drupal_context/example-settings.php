@@ -771,13 +771,15 @@ $settings['entity_update_batch_size'] = 50;
 # if (file_exists($app_root . '/' . $site_path . '/settings.local.php')) {
 #   include $app_root . '/' . $site_path . '/settings.local.php';
 # }
+
+# DATABASE SECTIONS
 $databases['default']['default'] = array (
-  'database' => 'wisski',
-  'username' => 'wisski',
-  'password' => 'wisski',
+  'database' => 'DBNAME',
+  'username' => 'DBUSER',
+  'password' => 'USERPW',
   'prefix' => '',
   'host' => 'mariadb',
-  'port' => '3306',
+  'port' => 'DBPORT',
   'namespace' => 'Drupal\\Core\\Database\\Driver\\mysql',
   'driver' => 'mysql',
 );

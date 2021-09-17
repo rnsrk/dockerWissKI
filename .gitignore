@@ -1,2 +1,4 @@
 graphdb.zip
 drupal-private-files
+.env
+settings.php
