@@ -1,17 +1,26 @@
 # Docker WissKI
 
 ## Prerequisites
-Install [Docker](https://docs.docker.com/get-docker/) and [Docker-Compose](https://docs.docker.com/compose/install/), you may want to apply some [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). 
+
+### Get the data
+Clone the repository (you need to have GIT LFS support). In case of problems with large files just download the zip.
+
+### Linux
+Install [Docker](https://docs.docker.com/get-docker/) and [Docker-Compose](https://docs.docker.com/compose/install/). You may want to apply some [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). 
+
+### Windows
+Install [Docker Desktop](https://docs.docker.com/get-docker/). You may need to install the [WSL 2 Linux kernel](https://docs.microsoft.com/de-de/windows/wsl/install-win10).  
 
 **Beware if you are using Virtualization software like VirtualBox, they may conflict with your Docker-Software in Windows.**
 
-You need and GraphDB standalone server zip file. Apply on the [GraphDB free downloadpage](https://www.ontotext.com/products/graphdb/graphdb-free/) and safe the file as `graphdb.zip` in the `graphdb_context` folder. 
+You need a GraphDB standalone server zip file. Apply on the [GraphDB free downloadpage](https://www.ontotext.com/products/graphdb/graphdb-free/), they will send you an email with a link to the stand alone server; safe the file as `graphdb.zip` in the `graphdb_context` folder. 
+
 ## Setup
 ### Script-driven (only Linux)
 Run `./setup.bash` to set your database credentials and port definitions.
 ### Windows and without script
 Open `.example-env` file, provide the credentials and ports according to your needs and save it as `.env`.
-Open `drupal-context/settings.php` and paste the credentials there, too. Go to the DATABASE SECTION at line 775 and change:
+Open `drupal-context/example-settings.php` and paste the credentials there, too and safe it as `drupal-context/settings.php` Go to the DATABASE SECTION at line 775 and change:
 ~~~php
   'database' => 'DBNAME',
   'username' => 'DBUSER',
