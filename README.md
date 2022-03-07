@@ -30,6 +30,9 @@ Open `drupal-context/example-settings.php` and paste the credentials there, too 
 ## Start
 Run `docker-compose up -d` to start containers.
 
+## Logs
+You can check the logs of each container by typing `docker logs <container-name>`, i.e. `docker logs dockerwisski_drupal_1`.
+
 ## Docker-compose environment
 There are four services corresponding to four containers
 - drupal/ dockerwisski_drupal_1
