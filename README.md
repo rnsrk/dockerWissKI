@@ -39,11 +39,11 @@ There are four services corresponding to four containers
 
 If you want to jump into a container, open a console and type
 ~~~bash
-docker -it <container-id> bash
+docker exec -it <container-id> bash
 ~~~
 for example 
 ~~~bash
-docker -it dockerwisski_drupal_1 bash
+docker exec -it dockerwisski_drupal_1 bash
 ~~~
 gets you into the drupal container.
 
