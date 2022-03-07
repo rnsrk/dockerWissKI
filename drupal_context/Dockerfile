@@ -139,9 +139,6 @@ RUN	chown -R www-data:www-data web/sites web/modules web/themes; \
 	# delete composer cache
 	rm -rf "$COMPOSER_HOME"
 
-# Add settings
-COPY settings.php /opt/drupal/web/sites/default/settings.php
-
 # install libraries
 RUN set -eux; \
 	mkdir -p web/libraries; \

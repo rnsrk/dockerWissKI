@@ -3,13 +3,14 @@ version: '3.7'
 services:
 
   drupal:
-    image: rnsrk/drupal_wisski:9.2.6
+    image: rnsrk/drupal_wisski:9.3.6
     restart: always
     build:
       context: ./drupal_context 
       dockerfile: Dockerfile
     volumes: 
        - drupal-data:/opt/drupal
+       - ./drupal_context/settings.php:/opt/drupal/web/sites/default/settings.php
     ports:
       - "${DRUPAL_PORT}:80"
 

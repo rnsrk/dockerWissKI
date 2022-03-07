@@ -200,7 +200,7 @@ cp ./drupal_context/example-settings.php ./drupal_context/settings.php
 sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
 sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
 sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
-sed -i "s/'port' =>.*/'port' => '${MARIADBPORT}',/" ./drupal_context/settings.php
+sed -i "s/'port' =>.*/'port' => '3306',/" ./drupal_context/settings.php
 
 
 printf "\n"
