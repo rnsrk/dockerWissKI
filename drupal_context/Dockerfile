@@ -130,7 +130,7 @@ RUN set -eux; \
 	export COMPOSER_HOME="$(mktemp -d)"; \
 	composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./; \
 	composer require ${REQUIREMENTS}; \
-	composer require --dev drush/drush --with-all-dependencies; \
+	composer require --dev drush/drush --with-all-dependencies;
 # Adjust permissions and links 
 RUN	chown -R www-data:www-data web/sites web/modules web/themes; \
 	rm -r /var/www/html; \
