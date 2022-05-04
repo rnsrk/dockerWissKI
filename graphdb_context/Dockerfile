@@ -21,7 +21,7 @@ RUN \
   rm /tmp/graphdb.zip
 
 # Set GraphDB Max and Min Heap size
-ENV GDB_HEAP_SIZE="2G"
+ENV GDB_HEAP_SIZE="4G"
 
 EXPOSE 7200
 CMD ["/graphdb/bin/graphdb"]
