@@ -131,7 +131,6 @@ RUN set -eux; \
 	composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./; \
 	composer require ${REQUIREMENTS}; \
 	composer require --dev drush/drush --with-all-dependencies; \
-	cd web/modules/contrib/wisski && composer update && cd /opt/drupal
 # Adjust permissions and links 
 RUN	chown -R www-data:www-data web/sites web/modules web/themes; \
 	rm -r /var/www/html; \
