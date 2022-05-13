@@ -44,6 +44,11 @@ services:
       dockerfile: Dockerfile
     volumes:
       - graphdb-data:/opt/graphdb
+    environment:
+      GDB_JAVA_OPTS: >-
+        -Dgraphdb.home=/opt/graphdb/home
+        -Dgraphdb.hostname=graphdb
+    volumes:
     ports:
       - "${GRAPHDB_PORT}:7200"
 
