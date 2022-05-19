@@ -109,13 +109,13 @@ FINISHED=false
 re='^[0-9]+$'
 while [ $FINISHED == false ]
 do
-    echo -e "${YELLOW}What should be the port of Drupal (default 80)?${NC}"
+    echo -e "${YELLOW}What should be the port of Drupal (default 8080)?${NC}"
     while [[ -z $DRUPALPORT ]]
     do
         read DRUPALPORT
         if [[ -z $DRUPALPORT ]]
         then
-            DRUPALPORT=80
+            DRUPALPORT=8080
             echo -e "${GREEN}Take default port ${DRUPALPORT}.${NC}"
         fi
         if ! [[ $DRUPALPORT =~ $re ]] ; then
@@ -164,11 +164,26 @@ do
             echo -e "${RED}SOLR port has to be a integer, like 8983.${NC}"
         fi
     done
+
+    echo -e "${YELLOW}What should be the port of PHPmyAdmin (default 8081)?${NC}"
+    while [[ -z $PHPMYADMINPORT ]]
+    do
+        read DRUPALPORT
+        if [[ -z $PHPMYADMINPORT ]]
+        then
+            PHPMYADMINPORT=8081
+            echo -e "${GREEN}Take default port ${PHPMYADMINPORT}.${NC}"
+        fi
+        if ! [[ $PHPMYADMINPORT =~ $re ]] ; then
+            echo -e "${RED}Drupal port has to be a integer!${NC}"
+        fi
+    done
     printf "\n"
     echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"   
     echo -e "${GREEN}MariaDB port: ${MARIADBPORT}${NC}"
     echo -e "${GREEN}GraphDB port: ${GRAPHDBPORT}${NC}"
     echo -e "${GREEN}SOLR port: ${SOLRPORT}${NC}"
+    echo -e "${GREEN}PHPmyAdmin port: ${PHPMYADMINPORT}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
@@ -177,12 +192,14 @@ do
         export MARIADBPORT
         export GRAPHDBPORT
         export SOLRPORT
+        export PHPMYADMINPORT
         FINISHED=true
     else
         unset DRUPALPORT
         unset MARIADBPORT
         unset GRAPHDBPORT
         unset SOLRPORT
+        export PHPMYADMINPORT
         echo -e "${GREEN}Okay then...${NC}"
     fi
 done
@@ -192,7 +209,9 @@ echo -e "${GREEN}Add ports to .env ${NC}"
 echo "DRUPAL_PORT=${DRUPALPORT}
 MARIADB_PORT=${MARIADBPORT}
 GRAPHDB_PORT=${GRAPHDBPORT}
-SOLR_PORT=${SOLRPORT}" >> .env
+SOLR_PORT=${SOLRPORT}
+PHPMYADMIN_PORT=${PHPMYADMINPORT}
+" >> .env
 
 printf "\n"
 echo -e "${GREEN}create and save credentials in settings.php. ${NC}"
