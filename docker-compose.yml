@@ -3,7 +3,7 @@ version: '3.7'
 services:
 
   drupal:
-    image: rnsrk/drupal_wisski:9.3.12
+    image: rnsrk/drupal_wisski:9.3.13
     restart: always
     build:
       context: ./drupal_context 
