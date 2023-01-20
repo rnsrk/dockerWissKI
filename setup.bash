@@ -168,7 +168,7 @@ do
     echo -e "${YELLOW}What should be the port of PHPmyAdmin (default 8081)?${NC}"
     while [[ -z $PHPMYADMINPORT ]]
     do
-        read DRUPALPORT
+        read PHPMYADMINPORT
         if [[ -z $PHPMYADMINPORT ]]
         then
             PHPMYADMINPORT=8081
