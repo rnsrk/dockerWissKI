@@ -95,10 +95,10 @@ unset FINISHED
 printf "\n"
 echo -e "${GREEN}Writing credentials to .env. ${NC}"
 
-echo "MYSQL_ROOT_PASSWORD=${ROOTPW}
-MYSQL_USER=${DBUSER}
-MYSQL_PASSWORD=${USERPW}
-MYSQL_DATABASE=${DBNAME}" > .env
+echo "MARIADB_ROOT_PASSWORD=${ROOTPW}
+MARIADB_USER=${DBUSER}
+MARIADB_PASSWORD=${USERPW}
+MARIADB_DATABASE=${DBNAME}" > .env
 
 printf "\n"
 
@@ -109,13 +109,13 @@ FINISHED=false
 re='^[0-9]+$'
 while [ $FINISHED == false ]
 do
-    echo -e "${YELLOW}What should be the port of Drupal (default 8080)?${NC}"
+    echo -e "${YELLOW}What should be the port of Drupal (default 80)?${NC}"
     while [[ -z $DRUPALPORT ]]
     do
         read DRUPALPORT
         if [[ -z $DRUPALPORT ]]
         then
-            DRUPALPORT=8080
+            DRUPALPORT=80
             echo -e "${GREEN}Take default port ${DRUPALPORT}.${NC}"
         fi
         if ! [[ $DRUPALPORT =~ $re ]] ; then

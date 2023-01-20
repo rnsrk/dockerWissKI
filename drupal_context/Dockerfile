@@ -103,12 +103,13 @@ RUN { \
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/
 
 # https://www.drupal.org/node/3060/release
-ENV DRUPAL_VERSION 9.3.13
+ENV DRUPAL_VERSION 9.3.14
 
 # Installed Drupal modules, please check and update versions if necessary
 # List Requirements
 ENV REQUIREMENTS="drupal/colorbox \
 	drupal/devel \
+	drush/drush \
 	drupal/facets \
 	drupal/field_permissions \
 	drupal/geofield \
@@ -116,21 +117,20 @@ ENV REQUIREMENTS="drupal/colorbox \
 	drupal/image_effects \
 	drupal/imagemagick \
 	drupal/imce \
-	drupal/inline_entity_form:1.x-dev@dev \
+	drupal/inline_entity_form:^1.0@RC \
 	kint-php/kint \
 	drupal/leaflet \
 	drupal/search_api \
 	drupal/search_api_solr \
-	drupal/viewfield:3.x-dev@dev \
-	drupal/wisski:3.x-dev@dev"
+	drupal/viewfield:^3.0@beta \
+	drupal/wisski"
 
 # Install Drupal, WissKI and dependencies
 WORKDIR /opt/drupal
 RUN set -eux; \
 	export COMPOSER_HOME="$(mktemp -d)"; \
 	composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./; \
-	composer require ${REQUIREMENTS}; \
-	composer require --dev drush/drush --with-all-dependencies;
+	yes | composer require ${REQUIREMENTS};
 # Adjust permissions and links 
 RUN	chown -R www-data:www-data web/sites web/modules web/themes; \
 	rm -r /var/www/html; \
