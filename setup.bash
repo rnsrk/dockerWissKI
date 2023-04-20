@@ -151,7 +151,7 @@ do
         fi
     done
 
-    echo -e "${YELLOW}Which port should be used for SORL (default 8983)?${NC}"
+    echo -e "${YELLOW}Which port should be used for Solr (default 8983)?${NC}"
     while [[ -z $SOLRPORT ]]
     do
         read SOLRPORT
@@ -161,7 +161,7 @@ do
             echo -e "${GREEN}Take default port ${SOLRPORT}.${NC}"
         fi
         if ! [[ $SOLRPORT =~ $re ]] ; then
-            echo -e "${RED}SOLR port has to be a integer, like 8983.${NC}"
+            echo -e "${RED}Solr port has to be a integer, like 8983.${NC}"
         fi
     done
 
@@ -182,7 +182,7 @@ do
     echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"   
     echo -e "${GREEN}MariaDB port: ${MARIADBPORT}${NC}"
     echo -e "${GREEN}GraphDB port: ${GRAPHDBPORT}${NC}"
-    echo -e "${GREEN}SOLR port: ${SOLRPORT}${NC}"
+    echo -e "${GREEN}Solr port: ${SOLRPORT}${NC}"
     echo -e "${GREEN}PHPmyAdmin port: ${PHPMYADMINPORT}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
