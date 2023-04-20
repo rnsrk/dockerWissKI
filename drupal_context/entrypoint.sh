@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Entrypoint to install Drupal in container
@@ -70,7 +69,7 @@ if ! [ -d /opt/drupal/web ]
 		chown -R www-data:www-data /opt/drupal		
 	else
 		echo "/opt/drupal/web already exists."
-	fi
+fi
 
 # Show apache log and keep server running
 /usr/sbin/apache2ctl -D FOREGROUND
