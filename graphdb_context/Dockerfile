@@ -17,7 +17,7 @@ COPY ./graphdb.zip /tmp/graphdb.zip
 
 RUN \
   unzip /tmp/graphdb.zip -d /tmp && \
-  mv /tmp/graphdb* /graphdb && \
+  mv /tmp/graphdb-* /graphdb && \
   rm /tmp/graphdb.zip
 
 # Set GraphDB Max and Min Heap size

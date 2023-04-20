@@ -2,3 +2,5 @@ graphdb.zip
 drupal-private-files
 .env
 settings.php
+drupal-data
+drupal_context/libraries

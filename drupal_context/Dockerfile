@@ -75,6 +75,9 @@ RUN set -eux; \
 	mkdir /fcgi-bin; \
 	cp src/iipsrv.fcgi /fcgi-bin/iipsrv.fcgi
 
+# Add IIPServer config
+COPY iipsrv.conf /etc/apache2/mods-available/iipsrv.conf 
+
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \
@@ -102,70 +105,22 @@ RUN { \
 #	rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/
 
-# https://www.drupal.org/node/3060/release
-ENV DRUPAL_VERSION 9.3.14
-
-# Installed Drupal modules, please check and update versions if necessary
-# List Requirements
-ENV REQUIREMENTS="drupal/colorbox \
-	drupal/devel \
-	drush/drush \
-	drupal/facets \
-	drupal/field_permissions \
-	drupal/geofield \
-	drupal/geofield_map \
-	drupal/image_effects \
-	drupal/imagemagick \
-	drupal/imce \
-	drupal/inline_entity_form:^1.0@RC \
-	kint-php/kint \
-	drupal/leaflet \
-	drupal/search_api \
-	drupal/search_api_solr \
-	drupal/viewfield:^3.0@beta \
-	drupal/wisski"
-
-# Install Drupal, WissKI and dependencies
-WORKDIR /opt/drupal
-RUN set -eux; \
-	export COMPOSER_HOME="$(mktemp -d)"; \
-	composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./; \
-	yes | composer require ${REQUIREMENTS};
-# Adjust permissions and links 
-RUN	chown -R www-data:www-data web/sites web/modules web/themes; \
-	rm -r /var/www/html; \
-	ln -sf /opt/drupal/web /var/www/html; \
-	# delete composer cache
-	rm -rf "$COMPOSER_HOME"
-
-# install libraries
-RUN set -eux; \
-	mkdir -p web/libraries; \
-	wget https://github.com/jackmoore/colorbox/archive/refs/heads/master.zip -P web/libraries/; \
-	unzip web/libraries/master.zip -d web/libraries/; \
-	rm -r web/libraries/master.zip;\
-	mv web/libraries/colorbox-master web/libraries/colorbox
-
-# Add IIPServer config
-COPY iipsrv.conf /etc/apache2/mods-available/iipsrv.conf 
-
-# IIPMooViewer
-RUN wget https://github.com/ruven/iipmooviewer/archive/refs/heads/master.zip -P web/libraries/; \
-	unzip web/libraries/master.zip -d web/libraries/; \
-	rm -r web/libraries/master.zip;\
-	mv web/libraries/iipmooviewer-master web/libraries/iipmooviewer
-
-# Mirador
-RUN	wget https://github.com/rnsrk/wisski-mirador-integration/archive/refs/heads/main.zip -P web/libraries/; \
-	unzip web/libraries/main.zip -d web/libraries/; \
-	mv web/libraries/wisski-mirador-integration-main web/libraries/wisski-mirador-integration
-
 # Add private files directory
 RUN mkdir /var/www/private_files && chown -R www-data /var/www/private_files
 
-# Add path
-ENV PATH=${PATH}:/opt/drupal/vendor/bin
+# Add Drupal directory
+RUN mkdir /opt/drupal
 
+# Change workdir
 WORKDIR /opt/drupal
+
+# Copy entrypoint to image
+COPY entrypoint.sh /entrypoint.sh
+
+# Copy Drupal settings from context to image 
+COPY settings.php /settings.php
+
+# Define entrypoint
+ENTRYPOINT /entrypoint.sh
 
 # vim:set ft=dockerfile:
