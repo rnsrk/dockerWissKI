@@ -18,7 +18,7 @@ FILE=./graphdb_context/graphdb.zip
 if [[ -f "$FILE" ]]
 then
     echo -e "${GREEN}Yes, we can proceed.${NC}"
-else 
+else
 	echo -e "${RED}No, please visit https://www.ontotext.com/products/graphdb/graphdb-free/ and apply for the recent version."
 	echo -e "Save as \"graphdb.zip\" in folder \"graphdb_context\".${NC}"
 fi
@@ -69,14 +69,14 @@ do
         fi
     done
     printf "\n"
-    echo -e "${GREEN}Database name: ${DBNAME}${NC}"   
+    echo -e "${GREEN}Database name: ${DBNAME}${NC}"
     echo -e "${GREEN}Root password: ${ROOTPW}${NC}"
     echo -e "${GREEN}Database user name: ${DBUSER}${NC}"
     echo -e "${GREEN}Database user password: ${USERPW}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
-    then 
+    then
         export DBNAME
         export ROOTPW
         export DBUSER
@@ -179,7 +179,7 @@ do
         fi
     done
     printf "\n"
-    echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"   
+    echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"
     echo -e "${GREEN}MariaDB port: ${MARIADBPORT}${NC}"
     echo -e "${GREEN}GraphDB port: ${GRAPHDBPORT}${NC}"
     echo -e "${GREEN}Solr port: ${SOLRPORT}${NC}"
@@ -187,7 +187,7 @@ do
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
-    then 
+    then
         export DRUPALPORT
         export MARIADBPORT
         export GRAPHDBPORT
@@ -216,10 +216,10 @@ PHPMYADMIN_PORT=${PHPMYADMINPORT}
 printf "\n"
 echo -e "${GREEN}create and save credentials in settings.php. ${NC}"
 cp ./drupal_context/example-settings.php ./drupal_context/settings.php
-sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
-sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
-sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
-sed -i "s/'port' =>.*/'port' => '3306',/" ./drupal_context/settings.php
+sed -ie "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php
+sed -ie "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php
+sed -ie "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
+sed -ie "s/'port' =>.*/'port' => '3306',/" ./drupal_context/settings.php
 
 
 printf "\n"
