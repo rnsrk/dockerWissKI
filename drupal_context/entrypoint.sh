@@ -34,7 +34,7 @@ if ! [ -d /opt/drupal/web ]
 		composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./
 		yes | composer require ${REQUIREMENTS}
 
-		# Adjust permissions and links 
+		# Adjust permissions and links
 		chown -R www-data:www-data /opt/drupal
 		rm -r /var/www/html
 		ln -sf /opt/drupal/web /var/www/html
@@ -63,10 +63,10 @@ if ! [ -d /opt/drupal/web ]
 
 		# Move settings-file to the right place
 		mv /settings.php web/sites/default/settings.php
-		
+
 		# Set permissions
 		chmod -R 644 web/sites/default/settings.php
-		chown -R www-data:www-data /opt/drupal		
+		chown -R www-data:www-data /opt/drupal
 	else
 		echo "/opt/drupal/web already exists."
 fi
