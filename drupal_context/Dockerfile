@@ -56,7 +56,10 @@ RUN	set -eux; \
 
 # Install apcu
 RUN set -eux; \
-	pecl install apcu;
+	pecl install apcu; \
+	pecl install xdebug \
+    docker-php-ext-enable xdebug; 
+
 
 # Add php configs
 RUN { \
