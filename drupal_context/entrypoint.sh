@@ -6,7 +6,7 @@
 if ! [ -d /opt/drupal/web ]
 	then
 		# https://www.drupal.org/node/3060/release
-		DRUPAL_VERSION='9.5.8'
+		DRUPAL_VERSION='10.0.8'
 
 		# Installed Drupal modules, please check and update versions if necessary
 		# List Requirements
@@ -34,10 +34,7 @@ if ! [ -d /opt/drupal/web ]
 		composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./
 		yes | composer require ${REQUIREMENTS}
 
-		# Adjust permissions and links
-		chown -R www-data:www-data /opt/drupal
-		rm -r /var/www/html
-		ln -sf /opt/drupal/web /var/www/html
+		
 
 		# delete composer cache
 		rm -rf "$COMPOSER_HOME"
@@ -70,6 +67,10 @@ if ! [ -d /opt/drupal/web ]
 	else
 		echo "/opt/drupal/web already exists."
 fi
+
+# Adjust permissions and links
+	rm -r /var/www/html
+	ln -sf /opt/drupal/web /var/www/html
 
 # Show apache log and keep server running
 /usr/sbin/apache2ctl -D FOREGROUND

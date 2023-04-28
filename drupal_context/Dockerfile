@@ -1,4 +1,4 @@
-FROM php:8.0-apache-bullseye
+FROM php:8.2-apache-bullseye
 
 # Install all the stuff we need
 # Enable rewrite
@@ -21,6 +21,7 @@ RUN	apt-get update; \
 		libfreetype6-dev \
 		libjpeg-dev \
 		libjpeg62-turbo \
+		libonig-dev \
 		libpng-dev \
 		libpng16-16 \
 		libpq-dev \
@@ -39,8 +40,10 @@ RUN	apt-get update; \
 RUN	docker-php-ext-configure gd \
 		--with-freetype \
 		--with-jpeg=/usr \
-		--with-webp; \
-	docker-php-ext-install -j "$(nproc)" \
+		--with-webp
+
+RUN	docker-php-ext-install -j "$(nproc)" \
+		dom \
 		gd \
 		opcache \
 		pdo_mysql \
@@ -122,6 +125,9 @@ COPY entrypoint.sh /entrypoint.sh
 
 # Copy Drupal settings from context to image 
 COPY settings.php /settings.php
+
+# (Re)link html dir
+RUN ln -sf /opt/drupal/web /var/www/html
 
 # Define entrypoint
 ENTRYPOINT /entrypoint.sh
