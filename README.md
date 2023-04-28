@@ -33,7 +33,9 @@ Run `docker compose up -d` to start containers in background.
 ## Logs
 You can check the logs of each container by typing `docker logs <container-name>`, i.e. `docker logs dockerwisski_drupal_1`.
 
-## Docker-compose environment
+## Docker compose environment
+
+### Services
 There are four services corresponding to four containers
 - drupal/ dockerwisski_drupal_1
 - graphdb/ dockerwisski_graphdb_1
@@ -41,6 +43,11 @@ There are four services corresponding to four containers
 - phpmyadmin/ dockerwisski_phpmyadmin_1
 - solr/ dockerwisski_solr_1
 
+To browse your services enter your domain and the port of the service (i.e. `localhost:7200` if you installed it on your local machine and left the default graphdb port).
+
+To connect to your services over the internal docker network, you have to provide the service name (drupal, mariadb, solr, graphdb) as host instead of `localhost` or `172.168.0.1`. For example the correct setting in the settings.php for host is not  `'host' => 'localhost'`, but  `'host' => 'mariadb'`. 
+
+### Editing
 If you want to jump into a container, open a console and type
 ~~~bash
 docker exec -it <container-id> bash
@@ -51,6 +58,7 @@ docker exec -it dockerwisski_drupal_1 bash
 ~~~
 gets you into the drupal container.
 
+### Volumes
 All containers have three bind volumes:
 - drupal-data stores your drupal root directory
 - mariadb-data corresponds to /var/lib/mysql
@@ -61,4 +69,3 @@ and one docker managed volume:
 
 You find these bind volumes in your git directory and the docker managed under `/var/lib/docker/volumes/<composer-prefix>_<volume name>/_data` (Linux - you have to be root to access) or at the location shown in your Docker Desktop settings (Premium Feature). Please check the right permissions, if you copy or alter files and folders.
 
-To connect to your services over the internal docker network, you have to provide the service name (drupal, mariadb, solr, graphdb) as host instead of `localhost` or `172.168.0.1`. For example the correct setting in the settings.php for host is not  `'host' => 'localhost'`, but  `'host' => 'mariadb'`. 
