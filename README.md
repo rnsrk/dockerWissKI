@@ -3,10 +3,10 @@
 ## Prerequisites
 
 ### Get the data
-Clone the repository (you need to have GIT LFS support). In case of problems with large files just download the zip.
+Clone the repository. In case of problems with large files just download the zip.
 
 ### Linux
-Install [Docker](https://docs.docker.com/get-docker/) and [Docker-Compose](https://docs.docker.com/compose/install/). You may want to apply some [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). 
+Install [Docker](https://docs.docker.com/get-docker/). You may want to apply some [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/). 
 
 ### Windows
 Install [Docker Desktop](https://docs.docker.com/get-docker/). You may need to install the [WSL 2 Linux kernel](https://docs.microsoft.com/de-de/windows/wsl/install-win10).  
@@ -28,7 +28,7 @@ Open `drupal-context/example-settings.php` and paste the credentials there, too 
   'port' => 'DBPORT',
  ~~~
 ## Start
-Run `docker-compose up -d` to start containers.
+Run `docker compose up -d` to start containers in background.
 
 ## Logs
 You can check the logs of each container by typing `docker logs <container-name>`, i.e. `docker logs dockerwisski_drupal_1`.
@@ -36,8 +36,9 @@ You can check the logs of each container by typing `docker logs <container-name>
 ## Docker-compose environment
 There are four services corresponding to four containers
 - drupal/ dockerwisski_drupal_1
-- mariadb/ dockerwisski_mariadb_1
 - graphdb/ dockerwisski_graphdb_1
+- mariadb/ dockerwisski_mariadb_1
+- phpmyadmin/ dockerwisski_phpmyadmin_1
 - solr/ dockerwisski_solr_1
 
 If you want to jump into a container, open a console and type
@@ -50,12 +51,14 @@ docker exec -it dockerwisski_drupal_1 bash
 ~~~
 gets you into the drupal container.
 
-All containers have volumes:
-- drupal-data stores your drupal web directory
+All containers have three bind volumes:
+- drupal-data stores your drupal root directory
 - mariadb-data corresponds to /var/lib/mysql
 - solr-data to SORL root dir
-- graphdb-data to Graphfb root dir
 
-You find these volumes (hopefully) under `/var/lib/docker/volumes/<composer-prefix>_<volume name>/_data` (Linux - you have to be root to access) or at the location shown in your Docker Desktop settings (Windows).
+and one docker managed volume:
+- graphdb-data to Graphdb /graphdb
+
+You find these bind volumes in your git directory and the docker managed under `/var/lib/docker/volumes/<composer-prefix>_<volume name>/_data` (Linux - you have to be root to access) or at the location shown in your Docker Desktop settings (Premium Feature). Please check the right permissions, if you copy or alter files and folders.
 
 To connect to your services over the internal docker network, you have to provide the service name (drupal, mariadb, solr, graphdb) as host instead of `localhost` or `172.168.0.1`. For example the correct setting in the settings.php for host is not  `'host' => 'localhost'`, but  `'host' => 'mariadb'`. 
