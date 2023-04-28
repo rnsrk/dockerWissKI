@@ -26,7 +26,7 @@ if ! [ -d /opt/drupal/web ]
 			drupal/search_api \
 			drupal/search_api_solr \
 			drupal/viewfield:^3.0@beta \
-			drupal/wisski"
+			drupal/wisski:3.x-dev@dev"
 
 		# Install Drupal, WissKI and dependencies
 		set -eux
