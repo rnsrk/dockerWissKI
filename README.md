@@ -36,7 +36,7 @@ You can check the logs of each container by typing `docker logs <container-name>
 ## Docker compose environment
 
 ### Services
-There are four services corresponding to four containers
+There are five services corresponding to four containers
 - drupal/ dockerwisski_drupal_1
 - graphdb/ dockerwisski_graphdb_1
 - mariadb/ dockerwisski_mariadb_1
