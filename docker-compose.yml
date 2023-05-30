@@ -44,7 +44,7 @@ services:
       context: ./graphdb_context
       dockerfile: Dockerfile
     volumes:
-      - graphdb-data:/opt/graphdb
+      - graphdb-data:/graphdb
     ports:
       - "${GRAPHDB_PORT}:7200"
 
