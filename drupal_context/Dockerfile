@@ -1,4 +1,4 @@
-FROM php:8.2-apache-bullseye
+FROM php:8.0-apache-bullseye
 
 # Install all the stuff we need
 # Enable rewrite
@@ -36,6 +36,43 @@ RUN	apt-get update; \
 		vim \
 		wget
 
+# already loaded php extensions:
+# - Core
+# - ctype
+# - curl
+# - date
+# - fileinfo
+# - ftp
+# - hash
+# - iconv
+# - json
+# - libxml
+# - mbstring
+# - mysqlnd
+# - openssl
+# - pcre
+# - PDO
+# - pdo_sqlite
+# - Phar
+# - posix
+# - readline
+# - Reflection
+# - session
+# - SimpleXML
+# - sodium
+# - SPL
+# - sqlite3
+# - standard
+# - tokenizer
+# - uploadprogress
+# - xml
+# - xmlreader
+# - xmlwriter
+# - Zend OPcache
+# - zlib
+
+
+
 # Add php extensions
 RUN	docker-php-ext-configure gd \
 		--with-freetype \
@@ -44,6 +81,7 @@ RUN	docker-php-ext-configure gd \
 
 RUN	docker-php-ext-install -j "$(nproc)" \
 		dom \
+		filter \
 		gd \
 		opcache \
 		pdo_mysql \
@@ -90,7 +128,7 @@ RUN { \
 		echo 'opcache.memory_consumption=128'; \
 		echo 'opcache.interned_strings_buffer=8'; \
 		echo 'opcache.max_accelerated_files=4000'; \
-		echo 'opcache.revalidate_freq=60'; \
+		echo 'opcache.revalidate_freq=0'; \
 		echo 'opcache.fast_shutdown=1'; \
 	} > /usr/local/etc/php/conf.d/opcache-recommended.ini;
 
