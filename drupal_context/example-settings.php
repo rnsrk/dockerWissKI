@@ -782,11 +782,6 @@ $databases['default']['default'] = array (
 
 $settings['config_sync_directory'] = 'sites/default/files/drupal_sync';
 
-$settings['trusted_host_patterns'] = [
-'^localhost$',
-'^127\.0\.0\.1$',
-];
-
 $config['system.logging']['error_level'] = 'verbose';
 
 

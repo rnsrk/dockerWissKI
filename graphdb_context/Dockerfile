@@ -17,11 +17,11 @@ COPY ./graphdb.zip /tmp/graphdb.zip
 
 RUN \
   unzip /tmp/graphdb.zip -d /tmp && \
-  mv /tmp/graphdb-free-* /graphdb && \
+  mv /tmp/graphdb-* /opt/graphdb && \
   rm /tmp/graphdb.zip
 
 # Set GraphDB Max and Min Heap size
 ENV GDB_HEAP_SIZE="4G"
 
 EXPOSE 7200
-CMD ["/graphdb/bin/graphdb"]
+CMD ["/opt/graphdb/bin/graphdb"]

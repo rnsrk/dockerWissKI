@@ -18,7 +18,7 @@ FILE=./graphdb_context/graphdb.zip
 if [[ -f "$FILE" ]]
 then
     echo -e "${GREEN}Yes, we can proceed.${NC}"
-else 
+else
 	echo -e "${RED}No, please visit https://www.ontotext.com/products/graphdb/graphdb-free/ and apply for the recent version."
 	echo -e "Save as \"graphdb.zip\" in folder \"graphdb_context\".${NC}"
 fi
@@ -69,14 +69,14 @@ do
         fi
     done
     printf "\n"
-    echo -e "${GREEN}Database name: ${DBNAME}${NC}"   
+    echo -e "${GREEN}Database name: ${DBNAME}${NC}"
     echo -e "${GREEN}Root password: ${ROOTPW}${NC}"
     echo -e "${GREEN}Database user name: ${DBUSER}${NC}"
     echo -e "${GREEN}Database user password: ${USERPW}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
-    then 
+    then
         export DBNAME
         export ROOTPW
         export DBUSER
@@ -95,10 +95,10 @@ unset FINISHED
 printf "\n"
 echo -e "${GREEN}Writing credentials to .env. ${NC}"
 
-echo "MYSQL_ROOT_PASSWORD=${ROOTPW}
-MYSQL_USER=${DBUSER}
-MYSQL_PASSWORD=${USERPW}
-MYSQL_DATABASE=${DBNAME}" > .env
+echo "MARIADB_ROOT_PASSWORD=${ROOTPW}
+MARIADB_USER=${DBUSER}
+MARIADB_PASSWORD=${USERPW}
+MARIADB_DATABASE=${DBNAME}" > .env
 
 printf "\n"
 
@@ -151,7 +151,7 @@ do
         fi
     done
 
-    echo -e "${YELLOW}Which port should be used for SORL (default 8983)?${NC}"
+    echo -e "${YELLOW}Which port should be used for Solr (default 8983)?${NC}"
     while [[ -z $SOLRPORT ]]
     do
         read SOLRPORT
@@ -161,28 +161,45 @@ do
             echo -e "${GREEN}Take default port ${SOLRPORT}.${NC}"
         fi
         if ! [[ $SOLRPORT =~ $re ]] ; then
-            echo -e "${RED}SOLR port has to be a integer, like 8983.${NC}"
+            echo -e "${RED}Solr port has to be a integer, like 8983.${NC}"
+        fi
+    done
+
+    echo -e "${YELLOW}What should be the port of PHPmyAdmin (default 8081)?${NC}"
+    while [[ -z $PHPMYADMINPORT ]]
+    do
+        read PHPMYADMINPORT
+        if [[ -z $PHPMYADMINPORT ]]
+        then
+            PHPMYADMINPORT=8081
+            echo -e "${GREEN}Take default port ${PHPMYADMINPORT}.${NC}"
+        fi
+        if ! [[ $PHPMYADMINPORT =~ $re ]] ; then
+            echo -e "${RED}Drupal port has to be a integer!${NC}"
         fi
     done
     printf "\n"
-    echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"   
+    echo -e "${GREEN}Drupal port: ${DRUPALPORT}${NC}"
     echo -e "${GREEN}MariaDB port: ${MARIADBPORT}${NC}"
     echo -e "${GREEN}GraphDB port: ${GRAPHDBPORT}${NC}"
-    echo -e "${GREEN}SOLR port: ${SOLRPORT}${NC}"
+    echo -e "${GREEN}Solr port: ${SOLRPORT}${NC}"
+    echo -e "${GREEN}PHPmyAdmin port: ${PHPMYADMINPORT}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
-    then 
+    then
         export DRUPALPORT
         export MARIADBPORT
         export GRAPHDBPORT
         export SOLRPORT
+        export PHPMYADMINPORT
         FINISHED=true
     else
         unset DRUPALPORT
         unset MARIADBPORT
         unset GRAPHDBPORT
         unset SOLRPORT
+        export PHPMYADMINPORT
         echo -e "${GREEN}Okay then...${NC}"
     fi
 done
@@ -192,17 +209,19 @@ echo -e "${GREEN}Add ports to .env ${NC}"
 echo "DRUPAL_PORT=${DRUPALPORT}
 MARIADB_PORT=${MARIADBPORT}
 GRAPHDB_PORT=${GRAPHDBPORT}
-SOLR_PORT=${SOLRPORT}" >> .env
+SOLR_PORT=${SOLRPORT}
+PHPMYADMIN_PORT=${PHPMYADMINPORT}
+" >> .env
 
 printf "\n"
 echo -e "${GREEN}create and save credentials in settings.php. ${NC}"
 cp ./drupal_context/example-settings.php ./drupal_context/settings.php
-sed -i "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php 
-sed -i "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php 
-sed -i "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
-sed -i "s/'port' =>.*/'port' => '3306',/" ./drupal_context/settings.php
+sed -i -e "s/'database' =>.*/'database' => '${DBNAME}',/" ./drupal_context/settings.php
+sed -i -e "s/'username' =>.*/'username' => '${DBUSER}',/" ./drupal_context/settings.php
+sed -i -e "s/'password' =>.*/'password' => '${USERPW}',/" ./drupal_context/settings.php
+sed -i -e "s/'port' =>.*/'port' => '${MARIADBPORT}',/" ./drupal_context/settings.php
 
 
 printf "\n"
-echo -e "${GREEN}Type docker-compose up -d to start the containers in the background${NC}"
+echo -e "${GREEN}Type docker compose up -d to start the containers in the background${NC}"
 echo -e "${GREEN}then visit http://localhost:${DRUPALPORT} to start the Drupal installer.${NC}"
