@@ -27,6 +27,8 @@ Open `drupal-context/example-settings.php` and paste the credentials there, too 
   'password' => 'USERPW',
   'port' => 'DBPORT',
  ~~~
+
+**If you change something in settings.php or in the Dockerfiles, you have to rebuild the images with `docker compose build`!**
 ## Start
 Run `docker compose up -d` to start containers in background.
 
