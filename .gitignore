@@ -1,6 +1,6 @@
 graphdb.zip
-drupal-private-files
 .env
 settings.php
 volumes
 drupal_context/libraries
+private_files

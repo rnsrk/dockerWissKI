@@ -1,4 +1,4 @@
-FROM php:8.0-apache-bullseye
+FROM php:8.2-apache-bullseye
 
 # Install all the stuff we need
 # Enable rewrite
@@ -150,7 +150,7 @@ RUN { \
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/
 
 # Add private files directory
-RUN mkdir /var/www/private_files && chown -R www-data /var/www/private_files
+RUN mkdir /var/www/private_files && chown -R www-data:www-data /var/www/private_files
 
 # Add Drupal directory
 RUN mkdir /opt/drupal

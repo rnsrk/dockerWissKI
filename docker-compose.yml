@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
     volumes:
        - ./volumes/drupal-data:/opt/drupal
-       - ./private_files:/var/www/private_files
+       - ./volumes/private_files:/var/www/private_files
     ports:
       - "${DRUPAL_PORT}:80"
 
@@ -45,7 +45,7 @@ services:
       context: ./graphdb_context
       dockerfile: Dockerfile
     volumes:
-      - graphdb-data:/graphdb
+      - ./volumes/graphdb-data:/graphdb
     environment:
       GDB_JAVA_OPTS: >-
         -Dgraphdb.home=/graphdb/home
