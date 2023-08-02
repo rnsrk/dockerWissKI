@@ -29,10 +29,10 @@ services:
       - "${MARIADB_PORT}:3306"
 
   solr:
-    image: solr:9.2
+    image: solr:8
     restart: always
     volumes:
-      - ./volumes/solr-data:/var/solr
+      - solr-data:/var/solr
     environment:
       SOLR_JAVA_MEM: "-Xms256M -Xmx512M"
     ports:
@@ -60,5 +60,6 @@ services:
       PMA_ARBITRARY: 1
     ports:
       - "${PHPMYADMIN_PORT}:80"
-
+volumes:
+  solr-data:
 # vim: tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab
