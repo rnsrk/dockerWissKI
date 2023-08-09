@@ -107,6 +107,7 @@ RUN { \
 		echo 'extension=apcu.so'; \
 		echo "apc.enable_cli=1"; \
 		echo "apc.enable=1"; \
+		echo "apc.shm_size=128M"; \
 	} >> /usr/local/etc/php/php.ini;
 
 # Install iipsrv
@@ -130,7 +131,7 @@ RUN { \
 		echo 'opcache.max_accelerated_files=4000'; \
 		echo 'opcache.revalidate_freq=0'; \
 		echo 'opcache.fast_shutdown=1'; \
-	} > /usr/local/etc/php/conf.d/opcache-recommended.ini;
+	} >> /usr/local/etc/php/conf.d/opcache-recommended.ini;
 
 # set memory settings for WissKi
 RUN { \
@@ -142,7 +143,7 @@ RUN { \
 		echo 'upload_max_filesize = 512M'; \
 		echo 'max_file_uploads = 50'; \
 		echo 'post_max_size = 512M'; \
-	} > /usr/local/etc/php/conf.d/wisski-settings.ini;
+	} >> /usr/local/etc/php/conf.d/wisski-settings.ini;
 
 # reset apt
 #	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
