@@ -20,12 +20,18 @@ You need a GraphDB standalone server zip file. Apply on the [GraphDB free downlo
 Run `./setup.bash` to set your database credentials and port definitions.
 ### Windows and without script
 Open `.example-env` file, provide the credentials and ports according to your needs and save it as `.env`.
-Open `drupal-context/example-settings.php` and paste the credentials there, too and safe it as `drupal-context/settings.php` Go to the DATABASE SECTION at line 775 and change:
 ~~~php
-  'database' => 'DBNAME',
-  'username' => 'DBUSER',
-  'password' => 'USERPW',
-  'port' => 'DBPORT',
+DB_ADMINISTRATION_PORT=8081
+DB_DRIVER=mysql
+DB_HOST=mariadb
+DB_NAME=DATABASE
+DB_PASSWORD=USERPW
+DB_PORT=3306
+DB_ROOT_PASSWORD=ROOTPW
+DB_USER=DBUSER
+DRUPAL_PORT=80
+GRAPHDB_PORT=7200
+SOLR_PORT=8983
  ~~~
 
 **If you change something in settings.php or in the Dockerfiles, you have to rebuild the images with `docker compose build`!**
