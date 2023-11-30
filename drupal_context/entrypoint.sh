@@ -34,8 +34,6 @@ if ! [ -d /opt/drupal/web ]
 		composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./
 		yes | composer require ${REQUIREMENTS}
 
-		
-
 		# delete composer cache
 		rm -rf "$COMPOSER_HOME"
 
@@ -58,8 +56,22 @@ if ! [ -d /opt/drupal/web ]
 		unzip web/libraries/main.zip -d web/libraries/
 		mv web/libraries/wisski-mirador-integration-main web/libraries/wisski-mirador-integration
 
-		# Move settings-file to the right place
-		mv /settings.php web/sites/default/settings.php
+		# Replace databse settings
+		drush php:eval "
+			\$settings = file_get_contents('sites/default/settings.php');
+			\$db_options = <<<EOT
+			\$databases['default']['default'] = array (
+  			'database' => getenv('DB_NAME'),
+  			'username' => getenv('DB_USER'),
+  			'password' => getenv('DB_PASSWORD'),
+  			'host' => getenv('DB_HOST'),
+  			'driver' => getenv('DB_DRIVER'),
+			);
+			EOT;
+			\$settings = preg_replace(\"/(\\\$databases\\['default'\\]\\['default'\\] = array \\(.*?\\);)/s\", \$db_options, \$settings);
+			file_put_contents('sites/default/settings.php', \$settings);
+		"
+		
 
 		# Set permissions
 		chmod -R 644 web/sites/default/settings.php

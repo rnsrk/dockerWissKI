@@ -3,7 +3,7 @@ version: '3.7'
 services:
 
   drupal:
-    image: rnsrk/drupal_wisski:10.0.8
+    image: rnsrk/drupal_wisski:10.1.6
     restart: always
     build:
       context: ./drupal_context
@@ -19,10 +19,10 @@ services:
     restart: always
     command: --transaction-isolation=READ-COMMITTED
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
-      MARIADB_USER: ${MARIADB_USER}
-      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_DATABASE: ${DB_DATABASE}
     volumes:
       - ./volumes/mariadb-data:/var/lib/mysql
     ports:
@@ -53,13 +53,11 @@ services:
     ports:
       - "${GRAPHDB_PORT}:7200"
 
-  phpmyadmin:
-    image: phpmyadmin:5.2
+  adminer:
+    image: adminer
     restart: always
-    environment:
-      PMA_ARBITRARY: 1
     ports:
-      - "${PHPMYADMIN_PORT}:80"
+      - "${ADMINER_PORT}:80"
 volumes:
   solr-data:
 # vim: tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab
