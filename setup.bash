@@ -33,10 +33,10 @@ FINISHED=false
 while [ $FINISHED == false ]
 do
     echo -e "${YELLOW}What should be the name of the database?${NC}"
-    while [[ -z $DBNAME ]]
+    while [[ -z $DB_NAME ]]
     do
-        read DBNAME
-        if [[ -z $DBNAME ]]
+        read DB_NAME
+        if [[ -z $DB_NAME ]]
         then
             echo -e "${RED}Database name can not be emtpy! Please enter a database name!${NC}"
         fi
@@ -51,42 +51,42 @@ do
         fi
     done
     echo -e "${YELLOW}Enter your database user name:${NC}"
-    while [[ -z $DBUSER ]]
+    while [[ -z $DB_USER ]]
     do
-        read DBUSER
-        if [[ -z $DBUSER ]]
+        read DB_USER
+        if [[ -z $DB_USER ]]
         then
             echo -e "${RED}Database user name can not be emtpy! Please enter database user name!${NC}"
         fi
     done
     echo -e "${YELLOW}Enter your database user password:${NC}"
-    while [[ -z $USERPW ]]
+    while [[ -z $DB_USER_PASSWORD ]]
     do
-        read USERPW
-        if [[ -z $USERPW ]]
+        read DB_USER_PASSWORD
+        if [[ -z $DB_USER_PASSWORD ]]
         then
             echo -e "${RED}Database user password can not be emtpy! Please enter database user name!${NC}"
         fi
     done
     printf "\n"
-    echo -e "${GREEN}Database name: ${DBNAME}${NC}"
+    echo -e "${GREEN}Database name: ${DB_NAME}${NC}"
     echo -e "${GREEN}Root password: ${DB_ROOT_PASSWORD}${NC}"
-    echo -e "${GREEN}Database user name: ${DBUSER}${NC}"
-    echo -e "${GREEN}Database user password: ${USERPW}${NC}"
+    echo -e "${GREEN}Database user name: ${DB_USER}${NC}"
+    echo -e "${GREEN}Database user password: ${DB_USER_PASSWORD}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
     then
-        export DBNAME
+        export DB_NAME
         export DB_ROOT_PASSWORD
-        export DBUSER
-        export USERPW
+        export DB_USER
+        export DB_USER_PASSWORD
         FINISHED=true
     else
-        unset DBNAME
+        unset DB_NAME
         unset DB_ROOT_PASSWORD
-        unset DBUSER
-        unset USERPW
+        unset DB_USER
+        unset DB_USER_PASSWORD
         echo -e "${GREEN}Okay then...${NC}"
     fi
 done
@@ -95,10 +95,10 @@ unset FINISHED
 printf "\n"
 echo -e "${GREEN}Writing credentials to .env. ${NC}"
 
-echo "DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-DB_USER=${DBUSER}
-DB_PASSWORD=${USERPW}
-DB_DATABASE=${DBNAME}" > .env
+echo "DB_NAME=${DB_NAME}
+DB_PASSWORD=${DB_USER_PASSWORD}
+DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+DB_USER=${DB_USER}" > .env
 
 printf "\n"
 
@@ -165,7 +165,7 @@ do
         fi
     done
 
-    echo -e "${YELLOW}What should be the port of PHPmyAdmin (default 8081)?${NC}"
+    echo -e "${YELLOW}What should be the port of database administration app (default 8081)?${NC}"
     while [[ -z $DB_ADMINISTRATION_PORT ]]
     do
         read DB_ADMINISTRATION_PORT
@@ -183,23 +183,23 @@ do
     echo -e "${GREEN}Database port: ${DB_PORT}${NC}"
     echo -e "${GREEN}GraphDB port: ${GRAPHDB_PORT}${NC}"
     echo -e "${GREEN}Solr port: ${SOLR_PORT}${NC}"
-    echo -e "${GREEN}PHPmyAdmin port: ${DB_ADMINISTRATION_PORT}${NC}"
+    echo -e "${GREEN}Database administration app port: ${DB_ADMINISTRATION_PORT}${NC}"
     echo -e "${YELLOW}Is that correct? (Y/n)"
     read SURE
     if [[ $SURE == 'y' ]] || [[ $SURE == 'Y' ]] || [[ -z $SURE ]]
     then
-        export DRUPAL_PORT
+        export DB_ADMINISTRATION_PORT
         export DB_PORT
+        export DRUPAL_PORT
         export GRAPHDB_PORT
         export SOLR_PORT
-        export DB_ADMINISTRATION_PORT
         FINISHED=true
     else
-        unset DRUPAL_PORT
+        export DB_ADMINISTRATION_PORT
         unset DB_PORT
+        unset DRUPAL_PORT
         unset GRAPHDB_PORT
         unset SOLR_PORT
-        export DB_ADMINISTRATION_PORT
         echo -e "${GREEN}Okay then...${NC}"
     fi
 done
@@ -209,16 +209,10 @@ echo -e "${GREEN}Add ports to .env ${NC}"
 echo "DB_ADMINISTRATION_PORT=${DB_ADMINISTRATION_PORT}
 DB_DRIVER=mysql
 DB_HOST=mariadb
-DB_NAME=${DBNAME}
-DB_PASSWORD=USERPW
 DB_PORT=${DB_PORT}
-DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-DB_USER=${DB_USER}
 DRUPAL_PORT=${DRUPAL_PORT}
 GRAPHDB_PORT=${GRAPHDB_PORT}
-SOLR_PORT=${SOLR_PORT}
-
-" >> .env
+SOLR_PORT=${SOLR_PORT}" >> .env
 
 
 printf "\n"

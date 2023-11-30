@@ -1,5 +1,12 @@
 FROM php:8.2-apache-bullseye
 
+# Getting env vars
+ARG DB_NAME
+ARG DB_USER
+ARG DB_PASSWORD
+ARG DB_HOST
+ARG DB_DRIVER
+
 # Install all the stuff we need
 # Enable rewrite
 RUN set -eux; \
@@ -162,13 +169,10 @@ WORKDIR /opt/drupal
 # Copy entrypoint to image
 COPY entrypoint.sh /entrypoint.sh
 
-# Copy Drupal settings from context to image 
-COPY settings.php /settings.php
-
 # (Re)link html dir
 RUN ln -sf /opt/drupal/web /var/www/html
 
 # Define entrypoint
-ENTRYPOINT /entrypoint.sh
+ENTRYPOINT /entrypoint.sh 
 
 # vim:set ft=dockerfile:

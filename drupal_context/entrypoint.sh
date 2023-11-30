@@ -6,7 +6,7 @@
 if ! [ -d /opt/drupal/web ]
 	then
 		# https://www.drupal.org/node/3060/release
-		DRUPAL_VERSION='10.0.8'
+		DRUPAL_VERSION='10.1.6'
 
 		# Installed Drupal modules, please check and update versions if necessary
 		# List Requirements
@@ -56,28 +56,20 @@ if ! [ -d /opt/drupal/web ]
 		unzip web/libraries/main.zip -d web/libraries/
 		mv web/libraries/wisski-mirador-integration-main web/libraries/wisski-mirador-integration
 
-		# Replace databse settings
-		drush php:eval "
-			\$settings = file_get_contents('sites/default/settings.php');
-			\$db_options = <<<EOT
-			\$databases['default']['default'] = array (
-  			'database' => getenv('DB_NAME'),
-  			'username' => getenv('DB_USER'),
-  			'password' => getenv('DB_PASSWORD'),
-  			'host' => getenv('DB_HOST'),
-  			'driver' => getenv('DB_DRIVER'),
-			);
-			EOT;
-			\$settings = preg_replace(\"/(\\\$databases\\['default'\\]\\['default'\\] = array \\(.*?\\);)/s\", \$db_options, \$settings);
-			file_put_contents('sites/default/settings.php', \$settings);
-		"
-		
+		# Replace database settings
+		cp web/sites/default/default.settings.php web/sites/default/settings.php
+		printf "\$databases['default']['default'] = [
+'database' => '%s',
+'username' => '%s',
+'password' => '%s',
+'host' => '%s',
+'driver' => '%s'
+];\n" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_HOST}" "${DB_DRIVER}" >> web/sites/default/settings.php
 
 		# Set permissions
-		chmod -R 644 web/sites/default/settings.php
 		chown -R www-data:www-data /opt/drupal
 	else
-		echo "/opt/drupal/web already exists."
+		echo "/opt/drupal/web already exists. So nothing were installed."
 fi
 
 # Adjust permissions and links
