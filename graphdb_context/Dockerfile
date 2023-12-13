@@ -1,6 +1,4 @@
-FROM openjdk:11-slim-buster
-
-MAINTAINER Robert Nasarek "r.nasarek@gnm.de"
+FROM openjdk:22-slim-bullseye
 
 # Silence debconf messages
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
@@ -19,9 +17,6 @@ RUN \
   unzip /tmp/graphdb.zip -d /tmp && \
   mv /tmp/graphdb-* /opt/graphdb && \
   rm /tmp/graphdb.zip
-
-# Set GraphDB Max and Min Heap size
-ENV GDB_HEAP_SIZE="4G"
 
 EXPOSE 7200
 CMD ["/opt/graphdb/bin/graphdb"]

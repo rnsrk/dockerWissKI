@@ -41,7 +41,7 @@ services:
       - "${DB_PORT}:3306"
 
   solr:
-    image: solr:8
+    image: solr:9
     restart: always
     volumes:
       - solr-data:/var/solr
@@ -62,6 +62,8 @@ services:
       GDB_JAVA_OPTS: >-
         -Dgraphdb.home=/graphdb/home
         -Dgraphdb.hostname=graphdb
+        -Xms512m 
+        -Xmx1024m
     ports:
       - "${GRAPHDB_PORT}:7200"
 
@@ -72,4 +74,5 @@ services:
       - "${DB_ADMINISTRATION_PORT}:8080"
 volumes:
   solr-data:
+
 # vim: tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab
