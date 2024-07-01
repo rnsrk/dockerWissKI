@@ -5,6 +5,8 @@ services:
   drupal:
     image: rnsrk/drupal_wisski:10.1.6
     restart: always
+    depends_on:
+      - graphdb
     build:
       context: ./drupal_context
       dockerfile: Dockerfile
@@ -15,6 +17,8 @@ services:
         DB_HOST: ${DB_HOST}
         DB_DRIVER: ${DB_DRIVER}
     environment:
+      SITE_NAME: ${SITE_NAME}
+      DEFAULT_GRAPH: ${DEFAULT_GRAPH}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -51,7 +55,6 @@ services:
       - "${SOLR_PORT}:8983"
 
   graphdb:
-    image: rnsrk/graphdb
     restart: always
     build:
       context: ./graphdb_context
@@ -62,7 +65,7 @@ services:
       GDB_JAVA_OPTS: >-
         -Dgraphdb.home=/graphdb/home
         -Dgraphdb.hostname=graphdb
-        -Xms512m 
+        -Xms512m
         -Xmx1024m
     ports:
       - "${GRAPHDB_PORT}:7200"

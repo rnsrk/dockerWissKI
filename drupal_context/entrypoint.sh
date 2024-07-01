@@ -68,6 +68,34 @@ if ! [ -d /opt/drupal/web ]
 
 		# Set permissions
 		chown -R www-data:www-data /opt/drupal
+
+		# Make drush available in the whole container
+		ln -s /opt/drupal/vendor/bin/drush /usr/local/bin
+
+		printf 'Waiting for GraphDB to start'
+		until curl --output /dev/null --silent --head --fail http://graphdb:7200/protocol; do
+			printf '.'
+			sleep 1
+		done
+		echo
+
+		# Create the default repo in the Triplestore
+		curl -X POST http://graphdb:7200/rest/repositories -H 'Content-Type: multipart/form-data' -F config=@/setup/create_repo.ttl
+		echo
+
+		# Install the site
+		drush site:install \
+			--db-url="${DB_HOST}" \
+			--db-su="${DB_USER}" \
+			--db-su-pw="${DB_PASSWORD}" \
+			--site-name="${SITE_NAME}" \
+
+		# Enable WissKI by default
+		drush en wisski
+
+		# Create the default SALZ adapter
+		drush php:script /setup/create_adapter.php
+
 	else
 		echo "/opt/drupal/web already exists. So nothing were installed."
 fi
