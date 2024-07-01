@@ -97,7 +97,7 @@ if ! [ -d /opt/drupal/web ]
 		drush php:script /setup/create_adapter.php
 
 	else
-		echo "/opt/drupal/web already exists. So nothing were installed."
+		echo "/opt/drupal/web already exists. So nothing was installed."
 fi
 
 # Adjust permissions and links
