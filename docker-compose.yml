@@ -3,7 +3,7 @@ version: '3.7'
 services:
 
   drupal:
-    image: rnsrk/drupal_wisski:10.1.6
+    image: rnsrk/drupal_wisski:${DRUPAL_VERSION}
     restart: always
     depends_on:
       - graphdb
@@ -17,6 +17,9 @@ services:
         DB_HOST: ${DB_HOST}
         DB_DRIVER: ${DB_DRIVER}
     environment:
+      DRUPAL_VERSION: ${DRUPAL_VERSION}
+      DRUPAL_USER: ${DRUPAL_USER}
+      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD}
       SITE_NAME: ${SITE_NAME}
       DEFAULT_GRAPH: ${DEFAULT_GRAPH}
       DB_NAME: ${DB_NAME}

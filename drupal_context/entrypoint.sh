@@ -5,9 +5,6 @@
 # Check if installation already exists
 if ! [ -d /opt/drupal/web ]
 	then
-		# https://www.drupal.org/node/3060/release
-		DRUPAL_VERSION='10.1.6'
-
 		# Installed Drupal modules, please check and update versions if necessary
 		# List Requirements
 		REQUIREMENTS="drupal/colorbox \
@@ -31,7 +28,7 @@ if ! [ -d /opt/drupal/web ]
 		# Install Drupal, WissKI and dependencies
 		set -eux
 		export COMPOSER_HOME="$(mktemp -d)"
-		composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./
+		composer create-project --no-interaction "drupal/recommended-project:${DRUPAL_VERSION}" ./
 		yes | composer require ${REQUIREMENTS}
 
 		# delete composer cache
@@ -89,6 +86,8 @@ if ! [ -d /opt/drupal/web ]
 			--db-su="${DB_USER}" \
 			--db-su-pw="${DB_PASSWORD}" \
 			--site-name="${SITE_NAME}" \
+			--account-name="${DRUPAL_USER}" \
+			--account-pass="${DRUPAL_PASSWORD}" \
 
 		# Enable WissKI by default
 		drush en wisski
