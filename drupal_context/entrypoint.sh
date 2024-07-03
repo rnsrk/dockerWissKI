@@ -63,9 +63,6 @@ if ! [ -d /opt/drupal/web ]
 'driver' => '%s'
 ];\n" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_HOST}" "${DB_DRIVER}" >> web/sites/default/settings.php
 
-		# Set permissions
-		chown -R www-data:www-data /opt/drupal
-
 		# Make drush available in the whole container
 		ln -s /opt/drupal/vendor/bin/drush /usr/local/bin
 
@@ -94,6 +91,9 @@ if ! [ -d /opt/drupal/web ]
 
 		# Create the default SALZ adapter
 		drush php:script /setup/create_adapter.php
+
+		# Set permissions
+		chown -R www-data:www-data /opt/drupal
 
 	else
 		echo "/opt/drupal/web already exists. So nothing was installed."
