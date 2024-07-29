@@ -14,7 +14,7 @@ RUN set -eux; \
 		a2enmod rewrite; \
 	fi
 
-# Install packages 
+# Install packages
 RUN	apt-get update; \
 	apt-get install -y --no-install-recommends \
 		apt-utils \
@@ -106,7 +106,7 @@ RUN	set -eux; \
 RUN set -eux; \
 	pecl install apcu; \
 	pecl install xdebug \
-    docker-php-ext-enable xdebug; 
+    docker-php-ext-enable xdebug;
 
 
 # Add php configs
@@ -128,7 +128,7 @@ RUN set -eux; \
 	cp src/iipsrv.fcgi /fcgi-bin/iipsrv.fcgi
 
 # Add IIPServer config
-COPY iipsrv.conf /etc/apache2/mods-available/iipsrv.conf 
+COPY iipsrv.conf /etc/apache2/mods-available/iipsrv.conf
 
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
@@ -163,6 +163,14 @@ RUN mkdir /var/www/private_files && chown -R www-data:www-data /var/www/private_
 # Add Drupal directory
 RUN mkdir /opt/drupal
 
+# Add setup directory
+RUN mkdir /setup
+# Copy drush script for adapter creation
+COPY create_adapter.php /setup
+
+# Copy .ttl template for repo creation
+COPY create_repo.ttl /setup
+
 # Change workdir
 WORKDIR /opt/drupal
 
@@ -173,6 +181,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN ln -sf /opt/drupal/web /var/www/html
 
 # Define entrypoint
-ENTRYPOINT /entrypoint.sh 
+ENTRYPOINT /entrypoint.sh
 
 # vim:set ft=dockerfile:

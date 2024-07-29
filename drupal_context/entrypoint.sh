@@ -5,9 +5,6 @@
 # Check if installation already exists
 if ! [ -d /opt/drupal/web ]
 	then
-		# https://www.drupal.org/node/3060/release
-		DRUPAL_VERSION='10.1.6'
-
 		# Installed Drupal modules, please check and update versions if necessary
 		# List Requirements
 		REQUIREMENTS="drupal/colorbox \
@@ -31,7 +28,7 @@ if ! [ -d /opt/drupal/web ]
 		# Install Drupal, WissKI and dependencies
 		set -eux
 		export COMPOSER_HOME="$(mktemp -d)"
-		composer create-project --no-interaction "drupal/recommended-project:$DRUPAL_VERSION" ./
+		composer create-project --no-interaction "drupal/recommended-project:${DRUPAL_VERSION}" ./
 		yes | composer require ${REQUIREMENTS}
 
 		# delete composer cache
@@ -66,10 +63,40 @@ if ! [ -d /opt/drupal/web ]
 'driver' => '%s'
 ];\n" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_HOST}" "${DB_DRIVER}" >> web/sites/default/settings.php
 
+		# Make drush available in the whole container
+		ln -s /opt/drupal/vendor/bin/drush /usr/local/bin
+
+		printf 'Waiting for GraphDB to start'
+		until curl --output /dev/null --silent --head --fail http://graphdb:7200/protocol; do
+			printf '.'
+			sleep 1
+		done
+		echo
+
+		# Create the default repo in the Triplestore
+		curl -X POST http://graphdb:7200/rest/repositories -H 'Content-Type: multipart/form-data' -F config=@/setup/create_repo.ttl
+		echo
+
+		# Install the site
+		drush site:install \
+			--db-url="${DB_HOST}" \
+			--db-su="${DB_USER}" \
+			--db-su-pw="${DB_PASSWORD}" \
+			--site-name="${SITE_NAME}" \
+			--account-name="${DRUPAL_USER}" \
+			--account-pass="${DRUPAL_PASSWORD}" \
+
+		# Enable WissKI by default
+		drush en wisski
+
+		# Create the default SALZ adapter
+		drush php:script /setup/create_adapter.php
+
 		# Set permissions
 		chown -R www-data:www-data /opt/drupal
+
 	else
-		echo "/opt/drupal/web already exists. So nothing were installed."
+		echo "/opt/drupal/web already exists. So nothing was installed."
 fi
 
 # Adjust permissions and links
