@@ -17,6 +17,7 @@ DRUPAL_PORT=80
 
 # WissKI settings
 DEFAULT_GRAPH=https://my.wiss-ki.eu/
+DEFAULT_DATA_MODEL=1
 
 # Graphdb settings
 GRAPHDB_PORT=7200

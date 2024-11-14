@@ -5,34 +5,40 @@
 # Check if installation already exists
 if ! [ -d /opt/drupal/web ]
 	then
+
 		# Installed Drupal modules, please check and update versions if necessary
 		# List Requirements
-		REQUIREMENTS="drupal/colorbox \
-			drupal/devel \
+		REQUIREMENTS="drupal/colorbox:^2.1 \
+			drupal/devel:^5.3 \
 			drush/drush \
-			drupal/facets \
-			drupal/field_permissions \
-			drupal/geofield \
-			drupal/geofield_map \
-			drupal/image_effects \
-			drupal/imagemagick \
-			drupal/imce \
-			drupal/inline_entity_form:^1.0@RC \
+			drupal/facets:^2.0 \
+			drupal/field_permissions:^1.4 \
+			drupal/geofield:^1.62 \
+			drupal/geofield_map:^11.0 \
+			drupal/image_effects:^4.0@RC \
+			drupal/imagemagick:^4.0 \
+			drupal/imce:^3.1 \
+			drupal/inline_entity_form:^3.0@RC \
 			kint-php/kint \
-			drupal/leaflet \
-			drupal/search_api \
-			drupal/search_api_solr \
+			drupal/leaflet:^10.2 \
+			drupal/search_api:^1.35 \
+			drupal/search_api_solr:^4.3 \
 			drupal/viewfield:^3.0@beta \
-			drupal/wisski:3.x-dev@dev"
+			drupal/wisski:3.x-dev@dev \
+			ewcomposer/unpack:dev-master"
 
 		# Install Drupal, WissKI and dependencies
 		set -eux
-		export COMPOSER_HOME="$(mktemp -d)"
-		composer create-project --no-interaction "drupal/recommended-project:${DRUPAL_VERSION}" ./
-		yes | composer require ${REQUIREMENTS}
+		composer create-project --no-interaction "drupal/recommended-project:${DRUPAL_VERSION}" .
 
-		# delete composer cache
-		rm -rf "$COMPOSER_HOME"
+		# Lets get dirty with composer
+		composer config minimum-stability dev
+
+		  # Add Drupal Recipe Composer plugin
+    composer config repositories.ewdev vcs https://gitlab.ewdev.ca/yonas.legesse/drupal-recipe-unpack.git
+    composer config allow-plugins.ewcomposer/unpack true
+
+		yes | composer require ${REQUIREMENTS}
 
 		# install libraries
 		set -eux
@@ -53,16 +59,6 @@ if ! [ -d /opt/drupal/web ]
 		unzip web/libraries/main.zip -d web/libraries/
 		mv web/libraries/wisski-mirador-integration-main web/libraries/wisski-mirador-integration
 
-		# Replace database settings
-		cp web/sites/default/default.settings.php web/sites/default/settings.php
-		printf "\$databases['default']['default'] = [
-'database' => '%s',
-'username' => '%s',
-'password' => '%s',
-'host' => '%s',
-'driver' => '%s'
-];\n" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_HOST}" "${DB_DRIVER}" >> web/sites/default/settings.php
-
 		# Make drush available in the whole container
 		ln -s /opt/drupal/vendor/bin/drush /usr/local/bin
 
@@ -78,19 +74,24 @@ if ! [ -d /opt/drupal/web ]
 		echo
 
 		# Install the site
-		drush site:install \
-			--db-url="${DB_HOST}" \
-			--db-su="${DB_USER}" \
-			--db-su-pw="${DB_PASSWORD}" \
-			--site-name="${SITE_NAME}" \
-			--account-name="${DRUPAL_USER}" \
-			--account-pass="${DRUPAL_PASSWORD}" \
+		drush si --db-url="${DB_DRIVER}://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:3306/${DB_NAME}" --site-name="${SITE_NAME}" --account-name="${DRUPAL_USER}" --account-pass="${DRUPAL_PASSWORD}"
 
 		# Enable WissKI by default
 		drush en wisski
 
 		# Create the default SALZ adapter
 		drush php:script /setup/create_adapter.php
+
+		# If default model is selected
+		if [ "${DEFAULT_DATA_MODEL}" = "1" ]; then
+			drush wisski-core:import-ontology --store="default" --ontology_url="https://wiss-ki.eu/ontology/" --reasoning
+			composer require soda-collection-objects-data-literacy/wisski_sweet:dev-main
+      composer unpack soda-collection-objects-data-literacy/wisski_sweet
+      drush recipe ../recipes/wisski_sweet
+      drush cr
+      drush wisski-core:recreate-menus
+      drush cr
+		fi
 
 		# Set permissions
 		chown -R www-data:www-data /opt/drupal

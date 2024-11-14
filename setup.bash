@@ -214,6 +214,31 @@ DRUPAL_PORT=${DRUPAL_PORT}
 GRAPHDB_PORT=${GRAPHDB_PORT}
 SOLR_PORT=${SOLR_PORT}" >> .env
 
+printf "\n"
+
+FINISHED=false
+while [ $FINISHED == false ]
+do
+    echo -e "${YELLOW}Do you want to use the default WissKI Ontology with the default data model (y/n)?${NC}"
+    while [[ -z $DEFAULT_DATA_MODEL ]]
+    do
+        read DEFAULT_DATA_MODEL
+        if [[ $DEFAULT_DATA_MODEL == 'y' ]] || [[ $DEFAULT_DATA_MODEL == 'Y' ]] || [[ -z $DEFAULT_DATA_MODEL ]]
+        then
+            DEFAULT_DATA_MODEL=1
+            echo -e "${GREEN}Use default data model.${NC}"
+            echo "DEFAULT_DATA_MODEL=1" >> .env
+            FINISHED=true
+        fi
+        else
+            DEFAULT_DATA_MODEL=0
+            echo -e "${GREEN}Do not use default data model.${NC}"
+            echo "DEFAULT_DATA_MODEL=0" >> .env
+            FINISHED=true
+        fi
+    done
+
+
 
 printf "\n"
 echo -e "${GREEN}Type docker compose up -d to start the containers in the background${NC}"

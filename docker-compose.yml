@@ -1,9 +1,7 @@
-version: '3.7'
-
 services:
 
   drupal:
-    image: rnsrk/drupal_wisski:${DRUPAL_VERSION}
+    image: wisski/drupal_wisski:${DRUPAL_VERSION}
     restart: always
     depends_on:
       - graphdb
@@ -16,17 +14,21 @@ services:
         DB_PASSWORD: ${DB_PASSWORD}
         DB_HOST: ${DB_HOST}
         DB_DRIVER: ${DB_DRIVER}
+        DB_PORT: ${DB_PORT}
     environment:
-      DRUPAL_VERSION: ${DRUPAL_VERSION}
-      DRUPAL_USER: ${DRUPAL_USER}
-      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD}
-      SITE_NAME: ${SITE_NAME}
-      DEFAULT_GRAPH: ${DEFAULT_GRAPH}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_HOST: ${DB_HOST}
       DB_DRIVER: ${DB_DRIVER}
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_USER: ${DB_USER}
+      DEFAULT_GRAPH: ${DEFAULT_GRAPH}
+      DEFAULT_DATA_MODEL: ${DEFAULT_DATA_MODEL}
+      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD}
+      DRUPAL_USER: ${DRUPAL_USER}
+      DRUPAL_VERSION: ${DRUPAL_VERSION}
+      SITE_NAME: ${SITE_NAME}
+
     volumes:
        - ./volumes/drupal-data:/opt/drupal
        - ./volumes/private_files:/var/www/private_files
@@ -34,7 +36,7 @@ services:
       - "${DRUPAL_PORT}:80"
 
   mariadb:
-    image: mariadb:10.10
+    image: mariadb:11.5
     restart: always
     command: --transaction-isolation=READ-COMMITTED
     environment:
@@ -48,8 +50,9 @@ services:
       - "${DB_PORT}:3306"
 
   solr:
-    image: solr:9
+    image: solr:9.7
     restart: always
+    container_name: solr_wisski
     volumes:
       - solr-data:/var/solr
     environment:
@@ -58,6 +61,7 @@ services:
       - "${SOLR_PORT}:8983"
 
   graphdb:
+    image: wisski/graphdb
     restart: always
     build:
       context: ./graphdb_context

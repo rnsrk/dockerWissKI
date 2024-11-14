@@ -1,4 +1,4 @@
-FROM php:8.2-apache-bullseye
+FROM php:8.3-apache-bullseye
 
 # Getting env vars
 ARG DB_NAME
@@ -130,6 +130,12 @@ RUN set -eux; \
 # Add IIPServer config
 COPY iipsrv.conf /etc/apache2/mods-available/iipsrv.conf
 
+# Output buffering is not enabled. This may degrade Drupal's performance.
+# You can enable output buffering by default in your PHP settings.
+RUN { \
+	echo 'output_buffering = on'; \
+	} >> /usr/local/etc/php/conf.d/99-drupal-recommended.ini;
+
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \
@@ -138,7 +144,7 @@ RUN { \
 		echo 'opcache.max_accelerated_files=4000'; \
 		echo 'opcache.revalidate_freq=0'; \
 		echo 'opcache.fast_shutdown=1'; \
-	} >> /usr/local/etc/php/conf.d/opcache-recommended.ini;
+	} >> /usr/local/etc/php/conf.d/99-opcache-recommended.ini;
 
 # set memory settings for WissKi
 RUN { \
@@ -150,7 +156,7 @@ RUN { \
 		echo 'upload_max_filesize = 512M'; \
 		echo 'max_file_uploads = 50'; \
 		echo 'post_max_size = 512M'; \
-	} >> /usr/local/etc/php/conf.d/wisski-settings.ini;
+	} >> /usr/local/etc/php/conf.d/99-wisski-settings.ini;
 
 # reset apt
 #	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
