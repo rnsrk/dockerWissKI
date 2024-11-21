@@ -9,17 +9,18 @@ DB_PASSWORD=USERPW
 DB_ROOT_PASSWORD=ROOTPW
 
 # Drupal settings
-SITE_NAME=My WissKI
 DRUPAL_USER=admin
-DRUPAL_PASSWORD=SUPERSECRET
-DRUPAL_VERSION=10.1.6 # For a list of Drupal releases see: https://www.drupal.org/node/3060/release
+DRUPAL_PASSWORD=123456789
+SITE_NAME=My WissKI
+# For a full list of WissKI recipe versions see: https://packagist.org/packages/soda-collection-objects-data-literacy/wisski_recipe_base
+WISSKI_BASE_RECIPE_VERSION=1.x-dev
 DRUPAL_PORT=80
 
-# WissKI settings
+# TS settings
+TS_USERNAME=admin
+TS_PASSWORD=""
+TS_REPOSITORY=default # has to be "default" for now
 DEFAULT_GRAPH=https://my.wiss-ki.eu/
-DEFAULT_DATA_MODEL=1
-
-# Graphdb settings
 GRAPHDB_PORT=7200
 
 # SOLR settings

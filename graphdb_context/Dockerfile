@@ -8,6 +8,7 @@ RUN \
   sed -i 's/# \(.*multiverse$\)/\1/g' /etc/apt/sources.list && \
   apt-get -qq update && \
   apt-get -y install unzip && \
+  apt-get -y install curl && \
   rm -rf /var/lib/apt/lists/*
 
 # Install GraphDB-Free and clean up
@@ -18,5 +19,8 @@ RUN \
   mv /tmp/graphdb-* /opt/graphdb && \
   rm /tmp/graphdb.zip
 
+COPY default_repository.ttl /
+COPY entrypoint.sh /
+
 EXPOSE 7200
-CMD ["/opt/graphdb/bin/graphdb"]
+CMD ["bash", "/entrypoint.sh"]
