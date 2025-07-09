@@ -28,12 +28,12 @@ You can check the logs of each container by typing `docker compose logs -f <serv
 
 ### Services
 There are five services corresponding to four containers
-- `drupal` (Default port: `80`)
-- `graphdb` (Defa `3306`)
-- `adminer` (Default port: `8081`)
-- `solr` (Default port: `8983`)
+- [`drupal`](http://localhost) (Default port: `80`)
+- [`solr`](http://localhost:8983) (Default port: `8983`)
+- [`adminer`](http://localhost:8081) (Default port: `8081`)
+- [`rdf4j`](http://localhost:7200) (Default port: `7200` )
 
-To browse your services enter your domain and the port of the service (i.e. `localhost:7200` if you installed it on your local machine and left the default graphdb port).
+To browse your services enter your domain and the port of the service (i.e. `localhost:7200`).
 
 ### Editing
 If you want to jump into a container, open a console and type
@@ -47,12 +47,33 @@ docker compose exec -it drupal bash
 gets you into the drupal container.
 
 ### Volumes
-- drupal-data: Contains the Drupal root directory /opt/drupal
-- private_files: Contains Drupal private files under /var/www/private_files
-- mariadb-data: Contains /var/lib/mysql
-- solr-data: Contains SORL root dir /var/solr
-- graphdb-data: Contains /graphdb
+- `drupal-data`: Contains the Drupal root directory `/opt/drupal`
+- `private_files`: Contains Drupal private files under `/var/www/private_files`
+- `mariadb-data`: Contains `/var/lib/mysql`
+- `solr-data`: Contains SOLR root dir `/var/solr`
+- `rdf4j-data`: Contains rdf4j data under `/var/rdf4j`
+- `rdf4j-logs`: Contains rdf4j logs `/usr/local/tomcat/logs`
 
 
 You find these volumes under `/var/lib/docker/volumes/<compose-prefix>_<volume-name>/_data` (Linux - you have to be root to access) or at the location shown in your Docker Desktop settings (Premium Feature). Please check the right permissions, if you copy or alter files and folders.
+
+### Custom Drupal modules
+In case you want to develop or install custom Drupal modules, the `docker-compose.yml` also mounts the `custom` directory in this repo to the `modules/custom` directroy in the Drupal container.
+For installation just copy the module source code into `custom` and you should be able to install the module via the Drupal `Extend` Module interface under [`/admin/modules`](http://localhost/admin/modules), or via the `drush` CLI (`docker compose exec drupal drush en MY_MODULE`).
+
+### WissKI development
+In case you wish to do WissKI development, start the stack once with `docker compose up -d` and wait for the Drupal/WissKI installation to finish.
+You can check on the progress with `docker compose logs -f drupal`.
+Once the installation is finished, shut down the stack with `docker compose down`.
+Now clone the [WissKI repository](https://git.drupalcode.org/project/wisski) into this repo: `git clone https://git.drupalcode.org/project/wisski.git`.
+To use this clone you will have to mount the cloned repo into the `/modules/contrib` directory of the docker container.
+To do this add the following line into the `volumes` section of the `drupal` service in the `docker-compose.yml`.
+```yaml
+services:
+  drupal:
+    volumes:
+      - ./wisski:/opt/drupal/web/modules/contrib/wisski
+```
+This will overwrite the default WissKI installtion from the Docker image.
+
 
