@@ -1,88 +1,104 @@
 services:
 
   drupal:
-    image: wisski/drupal_wisski:${DRUPAL_VERSION}
+    image: ghcr.io/soda-collections-objects-data-literacy/wisski-base-image:latest
+    container_name: dockerwisski-drupal
     restart: always
     depends_on:
-      - graphdb
-    build:
-      context: ./drupal_context
-      dockerfile: Dockerfile
-      args:  # Pass environment variables to Dockerfile
-        DB_NAME: ${DB_NAME}
-        DB_USER: ${DB_USER}
-        DB_PASSWORD: ${DB_PASSWORD}
-        DB_HOST: ${DB_HOST}
-        DB_DRIVER: ${DB_DRIVER}
-        DB_PORT: ${DB_PORT}
+      mariadb:
+        condition: service_healthy
+        restart: true
     environment:
-      DB_DRIVER: ${DB_DRIVER}
-      DB_HOST: ${DB_HOST}
-      DB_NAME: ${DB_NAME}
-      DB_PORT: ${DB_PORT}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_USER: ${DB_USER}
-      DEFAULT_GRAPH: ${DEFAULT_GRAPH}
-      DEFAULT_DATA_MODEL: ${DEFAULT_DATA_MODEL}
-      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD}
-      DRUPAL_USER: ${DRUPAL_USER}
-      DRUPAL_VERSION: ${DRUPAL_VERSION}
-      SITE_NAME: ${SITE_NAME}
+      DOMAIN: ${DRUPAL_DOMAIN:-localhost}
+      DRUPAL_TRUSTED_HOST: ${DRUPAL_DOMAIN:-localhost}
+      WISSKI_BASE_RECIPE_VERSION: ${WISSKI_BASE_RECIPE_VERSION:-1.x-dev}
+      DRUPAL_USER: ${DRUPAL_USER:-admin}
+      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
+      SITE_NAME: ${SITE_NAME:-My WissKI}
+      TS_USERNAME: ${TS_USERNAME:-}
+      TS_PASSWORD: ${TS_PASSWORD:-}
+      TS_REPOSITORY: ${TS_REPOSITORY:-default}
+      DEFAULT_GRAPH: ${DEFAULT_GRAPH:-https://my.wiss-ki.eu/}
+      TS_READ_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}
+      TS_WRITE_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}/statements
+      DB_NAME: ${DB_NAME:-DATABASE}
+      DB_USER: ${DB_USER:-DBUSER}
+      DB_PASSWORD: ${DB_PASSWORD:-USERPW}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_DRIVER: mysql
+    ports:
+      - ${DRUPAL_PORT:-80}:80
 
     volumes:
-       - ./volumes/drupal-data:/opt/drupal
-       - ./volumes/private_files:/var/www/private_files
-    ports:
-      - "${DRUPAL_PORT}:80"
+      - private_files:/var/www/private_files
+      - drupal-data:/opt/drupal
 
   mariadb:
     image: mariadb:11.5
+    container_name: dockerwisski-mariadb
     restart: always
     command: --transaction-isolation=READ-COMMITTED
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MARIADB_PASSWORD: ${DB_PASSWORD}
-      MARIADB_USER: ${DB_USER}
-      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-ROOTPW}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-USERPW}
+      MARIADB_USER: ${DB_USER:-DBUSER}
+      MARIADB_DATABASE: ${DB_NAME:-DATABASE}
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized" ]
+      start_period: 1m
+      start_interval: 10s
+      interval: 1m
+      timeout: 5s
+      retries: 3
+    # Uncomment to expose the MariaDB port to the host
+    #ports:
+    #  - ${DB_PORT:-3306}:3306
     volumes:
-      - ./volumes/mariadb-data:/var/lib/mysql
-    ports:
-      - "${DB_PORT}:3306"
+      - mariadb-data:/var/lib/mysql
 
   solr:
     image: solr:9.7
+    container_name: dockerwisski-solr
     restart: always
-    container_name: solr_wisski
-    volumes:
-      - solr-data:/var/solr
     environment:
       SOLR_JAVA_MEM: "-Xms256M -Xmx512M"
-    ports:
-      - "${SOLR_PORT}:8983"
-
-  graphdb:
-    image: wisski/graphdb
-    restart: always
-    build:
-      context: ./graphdb_context
-      dockerfile: Dockerfile
     volumes:
-      - ./volumes/graphdb-data:/graphdb
-    environment:
-      GDB_JAVA_OPTS: >-
-        -Dgraphdb.home=/graphdb/home
-        -Dgraphdb.hostname=graphdb
-        -Xms512m
-        -Xmx1024m
+      - solr-data:/var/solr
     ports:
-      - "${GRAPHDB_PORT}:7200"
+      - ${SOLR_PORT:-8983}:8983
 
   adminer:
     image: adminer
+    container_name: dockerwisski-adminer
     restart: always
     ports:
-      - "${DB_ADMINISTRATION_PORT}:8080"
-volumes:
-  solr-data:
+      - ${ADMINER_PORT:-8080}:8080
 
-# vim: tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab
+  rdf4j:
+    build:
+      context: rdf4j
+    container_name: dockerwisski-rdf4j
+    restart: always
+    environment:
+      - JAVA_OPTS=-Xms1g -Xmx4g
+    volumes:
+      - rdf4j-data:/var/rdf4j
+      - rdf4j-logs:/usr/local/tomcat/logs
+    healthcheck:
+      test: [ "CMD", "curl", "http://rdf4j:8080/rdf4j-server/protocol" ]
+      start_period: 30s
+      start_interval: 10s
+      interval: 1m
+      timeout: 5s
+      retries: 3
+    ports:
+      - ${RDF4J_PORT:-8080}:8080
+
+volumes:
+  rdf4j-logs:
+  rdf4j-data:
+  drupal-data:
+  mariadb-data:
+  private_files:
+  solr-data:

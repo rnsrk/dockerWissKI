@@ -1,6 +1,3 @@
-graphdb.zip
 .env
-settings.php
 volumes
-drupal_context/libraries
 private_files

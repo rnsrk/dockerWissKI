@@ -1,5 +1,16 @@
 # Docker WissKI
 
+This repository provides a ready-to-use Docker environment for WissKI, based on Drupal. It includes the following components:
+
+- **[Drupal/WissKI](https://wiss-ki.eu/)**: The main content management system and WissKI extension for semantic data management.
+  - Comes with preconfigured connection to MariaDB database and RDF4J triplestore (Solr integration has to be configured manually)
+  - Has the [WissKI Default Data Model](https://www.drupal.org/project/wisski_default_data_model) included.
+  - For Drupal/WissKI version and module setup, see [WissKI Base Image](https://github.com/soda-collections-objects-data-literacy/wisski-base-image)
+- **[MariaDB](https://mariadb.org/)**: The relational database used by Drupal.
+- **[RDF4J](https://rdf4j.org/)**: A triplestore for storing and querying semantic data (RDF).
+- **[Adminer](https://www.adminer.org/)**: A lightweight database management tool for MariaDB.
+- **[SOLR](https://solr.apache.org/)**: A powerful search server for indexing and searching site content.
+
 ## Prerequisites
 
 ### Get the data
@@ -13,83 +24,58 @@ Install [Docker Desktop](https://docs.docker.com/get-docker/). You may need to i
 
 **Beware if you are using Virtualization software like VirtualBox, they may conflict with your Docker-Software in Windows.**
 
-You need a GraphDB standalone server zip file. Apply on the [GraphDB free downloadpage](https://www.ontotext.com/products/graphdb/graphdb-free/), they will send you an email with a link to the stand alone server; safe the file as `graphdb.zip` in the `graphdb_context` folder (latest testet version: 10.8.0).
+## Usage
+To get started with Docker WissKI, follow these steps:
 
-## Setup
-### Script-driven (only Linux)
-Run `./setup.bash` to set your database credentials and port definitions.
-Definition of the Triplestore and Pathbuilder names are not implemented yet. The names are set to 'default'.
-### Windows and without script
-Open `.example-env` file, provide the credentials and ports according to your needs and save it as `.env`.
-~~~env
-# Database settings
-DB_ADMINISTRATION_PORT=8081
-DB_DRIVER=mysql
-DB_HOST=mariadb
-DB_NAME=DATABASE
-DB_PASSWORD=USERPW
-DB_PORT=3306
-DB_ROOT_PASSWORD=ROOTPW
-DB_USER=DBUSER
+1. **Clone the repository**
 
-# Drupal settings
-DRUPAL_PASSWORD=SUPERSECRET
-DRUPAL_PORT=80
-DRUPAL_USER=admin
-DRUPAL_VERSION=11.0.5 # For a list of Drupal releases see: https://www.drupal.org/node/3060/release
-SITE_NAME=My WissKI
+   ```bash
+   git clone https://github.com/rnsrk/dockerWissKI.git
+   cd dockerWissKI
+   ```
 
-# WissKI settings
-DEFAULT_GRAPH=https://my.wiss-ki.eu/
-DEFAULT_DATA_MODEL=1
+2. **Copy the example environment file**
 
-# Graphdb settings
-GRAPHDB_PORT=7200
+   Copy the provided `.example-env` file to `.env`. This file contains all the environment variables needed for the Docker setup.
 
-# SOLR settings
-SOLR_PORT=8983
- ~~~
+   ```bash
+   cp .example-env .env
+   ```
 
-**If you change something in the .env or Dockerfiles, you have to rebuild the images with `docker compose build`!**
-## Start
-Run `docker compose up -d` to start containers in background.
+   You can edit the `.env` file to adjust settings such as database credentials, ports, and site name to fit your needs.
 
-## Logs
-You can check the logs of each container by typing `docker logs <container-name>`, i.e. `docker logs dockerwisski_drupal_1`.
+3. **Start the Docker Compose environment**
 
-## Docker compose environment
+   Make sure Docker is running, then start all services with:
 
-### Services
-There are five services corresponding to four containers
-- drupal/ dockerwisski_drupal_1
-- graphdb/ dockerwisski_graphdb_1
-- mariadb/ dockerwisski_mariadb_1
-- phpmyadmin/ dockerwisski_phpmyadmin_1
-- solr/ dockerwisski_solr_1
+   ```bash
+   docker compose up -d
+   ```
 
-To browse your services enter your domain and the port of the service (i.e. `localhost:7200` if you installed it on your local machine and left the default graphdb port).
+   This will start all required containers (Drupal, MariaDB, SOLR, RDF4J, Adminer, etc.) in the background.
 
-To connect to your services over the internal docker network, you have to provide the service name (drupal, mariadb, solr, graphdb) as host instead of `localhost` or `172.168.0.1`. For example the correct setting in the settings.php for host is not  `'host' => 'localhost'`, but  `'host' => 'mariadb'`.
+4. **Access the services**
 
-### Editing
-If you want to jump into a container, open a console and type
-~~~bash
-docker exec -it <container-id> bash
-~~~
-for example
-~~~bash
-docker exec -it dockerwisski_drupal_1 bash
-~~~
-gets you into the drupal container.
+   - **Drupal**: [http://localhost:3000](http://localhost:3000) (or the port you set in `.env`)
+   - **Adminer** (database admin): [http://localhost:3001](http://localhost:3001)
+   - **RDF4J**: [http://localhost:3002](http://localhost:3002)
+   - **SOLR**: [http://localhost:3003](http://localhost:3003)
 
-### Volumes
-All containers have three bind volumes:
-- drupal-data stores your drupal root directory
-- mariadb-data corresponds to /var/lib/mysql
-- solr-data to SORL root dir
+   Default credentials and other settings can be found or changed in your `.env` file.
 
-and one docker managed volume:
-- graphdb-data to Graphdb /graphdb
+5. **Stopping the environment**
 
-You find these bind volumes in your git directory and the docker managed under `/var/lib/docker/volumes/<composer-prefix>_<volume name>/_data` (Linux - you have to be root to access) or at the location shown in your Docker Desktop settings (Premium Feature). Please check the right permissions, if you copy or alter files and folders.
+   To stop all running containers, use:
 
+   ```bash
+   docker compose down
+   ```
+
+**Note:**
+- The first startup may take a few minutes as Docker downloads the required images and initializes the services.
+- For advanced configuration, review and adjust the `docker-compose.yml` and `.env` files as needed.
+- If you encounter issues, ensure your Docker installation is up to date and that no other services are using the same ports.
+
+## TODO
+
+- [ ] SOLR preconfiguration for default model.
