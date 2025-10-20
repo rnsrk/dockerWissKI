@@ -15,6 +15,7 @@ DB_ROOT_PASSWORD=ROOTPW
 DRUPAL_DOMAIN=localhost
 DRUPAL_USER=admin
 DRUPAL_PASSWORD=admin
+USER_GROUPS=
 DRUPAL_PORT=3000
 SITE_NAME=My WissKI
 # For a full list of WissKI recipe versions see: https://packagist.org/packages/soda-collection-objects-data-literacy/wisski_recipe_base
@@ -31,5 +32,3 @@ TS_USERNAME=""
 TS_PASSWORD=""
 TS_REPOSITORY=default # has to be "default" for now
 DEFAULT_GRAPH=https://my.wiss-ki.eu/
-
-

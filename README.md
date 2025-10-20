@@ -43,6 +43,7 @@ To get started with Docker WissKI, follow these steps:
    ```
 
    You can edit the `.env` file to adjust settings such as database credentials, ports, and site name to fit your needs.
+   For more context about the variables refer to the [configuration section](https://github.com/soda-collections-objects-data-literacy/wisski-base-image?tab=readme-ov-file#configuration) of the `wisski-base-image`.
 
 3. **Start the Docker Compose environment**
 
