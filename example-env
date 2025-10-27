@@ -18,7 +18,7 @@ DRUPAL_PASSWORD=admin
 USER_GROUPS=
 DRUPAL_PORT=3000
 SITE_NAME=My WissKI
-# For a full list of WissKI recipe versions see: https://packagist.org/packages/soda-collection-objects-data-literacy/wisski_recipe_base
+# For a full list of WissKI Barrels and their reicpe versions see: https://wisski-barrels.de/barrels
 WISSKI_DEFAULT_DATA_MODEL_VERSION=1.x-dev
 WISSKI_STARTER_VERSION=1.x-dev
 
