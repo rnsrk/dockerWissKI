@@ -5,7 +5,6 @@ services:
       context: drupal
       dockerfile: Dockerfile
     container_name: wisski-performance-tuned-drupal
-    restart: always
     depends_on:
       mariadb:
         condition: service_healthy
@@ -16,6 +15,8 @@ services:
       DOMAIN: ${DRUPAL_DOMAIN:-localhost}
       DRUPAL_TRUSTED_HOST: ${DRUPAL_DOMAIN:-localhost}
       WISSKI_BASE_RECIPE_VERSION: ${WISSKI_BASE_RECIPE_VERSION:-1.x-dev}
+      WISSKI_STARTER_VERSION: ${WISSKI_STARTER_VERSION:-1.x-dev}
+      WISSKI_DEFAULT_DATA_MODEL_VERSION: ${WISSKI_DEFAULT_DATA_MODEL_VERSION:-1.x-dev}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
       USER_GROUPS: ${USER_GROUPS:-}

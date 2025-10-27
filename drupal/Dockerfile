@@ -100,8 +100,8 @@ RUN { \
     } >> /usr/local/etc/php/conf.d/zz-apcu-custom.ini;
 
 # Redis configuration
+# Note: extension is already enabled by docker-php-ext-enable above
 RUN { \
-    echo 'extension=redis.so'; \
     echo 'redis.session.locking_enabled=1'; \
     echo 'redis.session.lock_retries=-1'; \
     echo 'redis.session.lock_wait_time=10000'; \
