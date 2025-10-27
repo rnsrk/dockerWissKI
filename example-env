@@ -20,12 +20,20 @@ DRUPAL_PORT=3000
 SITE_NAME=My WissKI
 # For a full list of WissKI recipe versions see: https://packagist.org/packages/soda-collection-objects-data-literacy/wisski_recipe_base
 WISSKI_BASE_RECIPE_VERSION=1.x-dev
+WISSKI_DEFAULT_DATA_MODEL_VERSION=1.x-dev
+
 
 # RDF4J settings
 RDF4J_PORT=3002
 
 # SOLR settings
 SOLR_PORT=3003
+
+# Redis settings
+REDIS_PORT=3004
+
+# Varnish settings
+VARNISH_PORT=3005
 
 # TS settings
 TS_USERNAME=""
