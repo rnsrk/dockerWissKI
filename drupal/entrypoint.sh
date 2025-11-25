@@ -327,6 +327,7 @@ EOF
   # Apply WissKI Starter recipe.
   if [ -n "${WISSKI_BASE_RECIPE_VERSION}" ]; then
     echo -e "\033[0;33mAPPLY WISSKI STARTER RECIPE.\033[0m"
+      composer config repositories.wisski vcs https://git.drupalcode.org/project/wisski.git
       composer require "drupal/wisski_starter:${WISSKI_STARTER_VERSION:-1.x-dev}"
       drush cr
       drush recipe ../recipes/wisski_starter
