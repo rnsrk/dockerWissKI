@@ -325,14 +325,19 @@ EOF
   fi
 
   # Apply WissKI Starter recipe.
-  if [ -n "${WISSKI_BASE_RECIPE_VERSION}" ]; then
+  if [ -n "${WISSKI_STARTER_VERSION}" ]; then
     echo -e "\033[0;33mAPPLY WISSKI STARTER RECIPE.\033[0m"
+      RECIPE_USED=true;
+      composer config repositories.wisski vcs https://git.drupalcode.org/project/wisski.git
       composer require "drupal/wisski_starter:${WISSKI_STARTER_VERSION:-1.x-dev}"
       drush cr
       drush recipe ../recipes/wisski_starter
       drush cr
     echo -e "\033[0;32mWISSKI STARTER RECIPE APPLIED.\033[0m\n"
 
+  fi
+  if [ -n "${WISSKI_DEFAULT_DATA_MODEL_VERSION}" ]; then
+    RECIPE_USED=true;
     # Install default adapter.
     echo -e "\033[0;33mINSTALL DEFAULT TRIPLESTORE ADAPTER.\033[0m"
       drush wisski-salz:create-adapter \
@@ -369,37 +374,24 @@ EOF
       drush cr
     echo -e "\033[0;32mWISSKI DEFAULT DATA MODEL RECIPE APPLIED.\033[0m\n"
 
-    if [ -n "${WISSKI_FLAVOURS}" ]; then
-      for FLAVOUR in ${WISSKI_FLAVOURS}; do
-        # Apply WissKI flavour recipe.
-        echo -e "\033[0;33mAPPLY WISSKI ${FLAVOUR} RECIPE.\033[0m"
-        {
-          composer require soda-collection-objects-data-literacy/wisski_${FLAVOUR}:dev-main
-          drush cr
-          drush recipe ../recipes/wisski_${FLAVOUR}
-          drush wisski-core:recreate-menus
-          drush cr
-        } 1> /dev/null
-        echo -e "\033[0;32mWISSKI ${FLAVOUR} RECIPE APPLIED.\033[0m\n"
+    echo -e "\033[0;33mINSTALL ADDITIONAL LIBRARIES.\033[0m"
+      echo -e "\033[0;33mDownload Mirador integration library.\033[0m"
+      drush wisski-mirador:wisski-mirador-integration
+      echo -e "\033[0;32mMirador integration library downloaded.\033[0m\n"
+      echo -e "\033[0;33mDownload Colorbox integration library.\033[0m"
+      drush colorbox:plugin
+      echo -e "\033[0;32mColorbox integration library downloaded.\033[0m\n"
+      echo -e "\033[0;33mDownload DomPurify integration library.\033[0m"
+      drush colorbox:dompurify
+      echo -e "\033[0;32mDomPurify integration library downloaded.\033[0m\n"
+      echo -e "\033[0;33mSet IIIF configs.\033[0m"
+      drush config-set wisski_iip_image.wisski_iiif_settings iiif_server "${DOMAIN}/fcgi-bin/iipsrv.fcgi?IIIF="
+      echo -e "\033[0;32mIIIF configs set.\033[0m\n"
+    echo -e "\033[0;32mADDITIONAL LIBRARIES INSTALLED.\033[0m\n"
 
-        # Set IIP server config.
-        if [ "${FLAVOUR}" == "fruity" ]; then
-          echo -e "\033[0;33mDownload Mirador integration library.\033[0m"
-          drush wisski-mirador:wisski-mirador-integration
-          echo -e "\033[0;32mMirador integration library downloaded.\033[0m\n"
-          echo -e "\033[0;33mDownload Colorbox integration library.\033[0m"
-          drush colorbox:plugin
-          echo -e "\033[0;32mColorbox integration library downloaded.\033[0m\n"
-          echo -e "\033[0;33mDownload DomPurify integration library.\033[0m"
-          drush colorbox:dompurify
-          echo -e "\033[0;32mDomPurify integration library downloaded.\033[0m\n"
-          echo -e "\033[0;33mSet IIIF configs.\033[0m"
-          drush config-set wisski_iip_image.wisski_iiif_settings iiif_server "${DOMAIN}/fcgi-bin/iipsrv.fcgi?IIIF="
-          echo -e "\033[0;32mIIIF configs set.\033[0m\n"
-        fi
-      done
-    fi
+  fi
 
+  if [ "$RECIPE_USED" = true ]; then
     # Unpack recipes.
     echo -e "\033[0;33mUNPACK RECIPES.\033[0m"
     composer drupal:recipe-unpack >> /dev/null
@@ -413,11 +405,8 @@ EOF
   echo "PWD: $(pwd)"
   echo -e "\033[0;32mCHANGED TO ROOT USER.\033[0m\n"
 
-  # Set permissions of web directory.
-  echo -e "\033[0;33mSET PERMISSIONS OF WEB DIRECTORY.\033[0m"
-  chown -R www-data:www-data /opt/drupal
-  chmod -R 775 /opt/drupal
-  echo -e "\033[0;32mPERMISSIONS OF WEB DIRECTORY SET.\033[0m\n"
+  # Set secure permissions following Drupal security guidelines.
+  /usr/local/bin/set-permissions.sh
 
 
 fi

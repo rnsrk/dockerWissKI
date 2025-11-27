@@ -192,13 +192,14 @@ RUN composer require drush/drush
 # add composer bin to PATH
 RUN ln -s /opt/drupal/vendor/bin/drush /usr/local/bin/drush
 
-# Change ownerships
+# Set initial ownerships and permissions (secure base).
 RUN chown -R www-data:www-data /opt/drupal; \
     chown -R www-data:www-data /var/private-files; \
     chown -R www-data:www-data /var/composer-home; \
-    chmod -R 775 /var/www/html; \
-    chmod -R 775 /var/private-files; \
-    chmod -R 775 /var/composer-home
+    find /opt/drupal -type d -exec chmod 755 {} \; \
+    find /opt/drupal -type f -exec chmod 644 {} \; \
+    chmod 770 /var/private-files; \
+    chmod 775 /var/composer-home
 
 # Set Composer home directory
 ENV COMPOSER_HOME=/var/composer-home
@@ -207,7 +208,7 @@ ENV COMPOSER_HOME=/var/composer-home
 RUN usermod -s /bin/bash www-data
 
 # Disable Apache logging
-ARG APACHE_LOGGING=
+ARG APACHE_LOGGING=${APACHE_LOGGING:-false}
 RUN (([ "$APACHE_LOGGING" = "false" ] && { \
     echo 'ErrorLog /dev/null'; \
     echo 'CustomLog /dev/null combined'; \
@@ -283,6 +284,10 @@ RUN { \
     echo 'KeepAliveTimeout 5'; \
     } > /etc/apache2/conf-available/performance.conf && \
     a2enconf performance
+
+# Add permission scripts
+COPY set-permissions.sh /usr/local/bin/set-permissions.sh
+RUN chmod +x /usr/local/bin/set-permissions.sh
 
 # Add entrypoint
 COPY entrypoint.sh /entrypoint.sh

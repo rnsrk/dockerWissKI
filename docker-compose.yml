@@ -1,9 +1,7 @@
 services:
 
   drupal:
-    build:
-      context: drupal
-      dockerfile: Dockerfile
+    image: ghcr.io/soda-collections-objects-data-literacy/wisski-base-image:${WISSKI_BASE_IMAGE_VERSION:-latest}
     container_name: wisski-performance-tuned-drupal
     depends_on:
       mariadb:
@@ -11,30 +9,38 @@ services:
         restart: true
       redis:
         condition: service_healthy
+      rdf4j:
+        condition: service_healthy
+        restart: true
+      solr:
+        condition: service_healthy
+        restart: true
     environment:
-      DOMAIN: ${DRUPAL_DOMAIN:-localhost}
-      DRUPAL_TRUSTED_HOST: ${DRUPAL_DOMAIN:-localhost}
-      WISSKI_BASE_RECIPE_VERSION: ${WISSKI_BASE_RECIPE_VERSION:-1.x-dev}
-      WISSKI_STARTER_VERSION: ${WISSKI_STARTER_VERSION:-1.x-dev}
-      WISSKI_DEFAULT_DATA_MODEL_VERSION: ${WISSKI_DEFAULT_DATA_MODEL_VERSION:-1.x-dev}
-      DRUPAL_USER: ${DRUPAL_USER:-admin}
-      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
-      USER_GROUPS: ${USER_GROUPS:-}
-      SITE_NAME: ${SITE_NAME:-My WissKI}
-      TS_USERNAME: ${TS_USERNAME:-}
-      TS_PASSWORD: ${TS_PASSWORD:-}
-      TS_REPOSITORY: ${TS_REPOSITORY:-default}
-      DEFAULT_GRAPH: ${DEFAULT_GRAPH:-https://my.wiss-ki.eu/}
-      TS_READ_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}
-      TS_WRITE_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}/statements
-      DB_NAME: ${DB_NAME:-DATABASE}
-      DB_USER: ${DB_USER:-DBUSER}
-      DB_PASSWORD: ${DB_PASSWORD:-USERPW}
-      DB_HOST: mariadb
-      DB_PORT: 3306
+      APACHE_LOGGING: ${APACHE_LOGGING:-false}
       DB_DRIVER: mysql
+      DB_HOST: mariadb
+      DB_NAME: ${DB_NAME:-DATABASE}
+      DB_PASSWORD: ${DB_PASSWORD:-USERPW}
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-DBUSER}
+      DEBUG: ${DEBUG:-true}
+      DEFAULT_GRAPH: ${DEFAULT_GRAPH:-https://my.wiss-ki.eu/}
+      DOMAIN: ${DRUPAL_DOMAIN:-localhost}
+      DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
+      DRUPAL_TRUSTED_HOST: ${DRUPAL_DOMAIN:-localhost}
+      DRUPAL_USER: ${DRUPAL_USER:-admin}
+      MODE: ${MODE:-development}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      SITE_NAME: ${SITE_NAME:-My WissKI}
+      TS_PASSWORD: ${TS_PASSWORD:-}
+      TS_READ_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}
+      TS_REPOSITORY: ${TS_REPOSITORY:-default}
+      TS_USERNAME: ${TS_USERNAME:-}
+      TS_WRITE_URL: http://rdf4j:8080/rdf4j-server/repositories/${TS_REPOSITORY:-default}/statements
+      USER_GROUPS: ${USER_GROUPS:-}
+      WISSKI_DEFAULT_DATA_MODEL_VERSION: ${WISSKI_DEFAULT_DATA_MODEL_VERSION:-1.x-dev}
+      WISSKI_STARTER_VERSION: ${WISSKI_STARTER_VERSION:-1.x-dev}
     ports:
       - ${DRUPAL_PORT:-80}:80
     volumes:
@@ -60,27 +66,47 @@ services:
     container_name: wisski-performance-tuned-mariadb
     restart: always
     command: >
-      --transaction-isolation=READ-COMMITTED
-      --innodb-buffer-pool-size=1G
-      --innodb-log-file-size=256M
-      --innodb-flush-log-at-trx-commit=2
-      --innodb-flush-method=O_DIRECT
-      --innodb-file-per-table=1
-      --max-connections=200
-      --table-open-cache=4000
-      --query-cache-type=1
-      --query-cache-size=64M
-      --query-cache-limit=2M
-      --thread-cache-size=50
-      --tmp-table-size=64M
-      --max-heap-table-size=64M
-      --join-buffer-size=4M
-      --sort-buffer-size=4M
-      --read-rnd-buffer-size=2M
-      --binlog-cache-size=1M
-      --expire-logs-days=7
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
+        --transaction-isolation=READ-COMMITTED
+        --innodb-buffer-pool-size=1G
+        --innodb-buffer-pool-instances=2
+        --innodb-log-file-size=256M
+        --innodb-log-buffer-size=32M
+        --innodb-flush-log-at-trx-commit=2
+        --innodb-flush-method=O_DIRECT
+        --innodb-file-per-table=1
+        --innodb-read-io-threads=4
+        --innodb-write-io-threads=4
+        --innodb-io-capacity=1000
+        --innodb-io-capacity-max=2000
+        --innodb-purge-threads=2
+        --innodb-page-cleaners=2
+        --innodb-adaptive-hash-index=1
+        --innodb-change-buffering=all
+        --max-connections=200
+        --max-user-connections=180
+        --table-open-cache=4000
+        --table-definition-cache=2000
+        --thread-cache-size=50
+        --tmp-table-size=64M
+        --max-heap-table-size=64M
+        --join-buffer-size=4M
+        --sort-buffer-size=4M
+        --read-buffer-size=1M
+        --read-rnd-buffer-size=2M
+        --binlog-cache-size=1M
+        --max-binlog-size=256M
+        --expire-logs-days=7
+        --slow-query-log=1
+        --slow-query-log-file=/var/log/mysql/slow-query.log
+        --long-query-time=2
+        --log-queries-not-using-indexes=1
+        --character-set-server=utf8mb4
+        --collation-server=utf8mb4_unicode_ci
+        --max-allowed-packet=64M
+        --wait-timeout=600
+        --interactive-timeout=600
+        --net-read-timeout=60
+        --net-write-timeout=60
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-ROOTPW}
       MARIADB_PASSWORD: ${DB_PASSWORD:-USERPW}
@@ -125,6 +151,12 @@ services:
         reservations:
           cpus: '0.25'
           memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8983/solr/admin/info/system"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   adminer:
     image: adminer
