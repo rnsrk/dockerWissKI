@@ -240,8 +240,8 @@ services:
           memory: 256M
     ulimits:
       memlock:
-        soft: 67108864
-        hard: 67108864
+        soft: 536870912
+        hard: 536870912
     healthcheck:
       test: ["CMD", "varnishstat", "-1"]
       interval: 30s
