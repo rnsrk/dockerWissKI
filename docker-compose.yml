@@ -238,6 +238,10 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    ulimits:
+      memlock:
+        soft: 67108864
+        hard: 67108864
     healthcheck:
       test: ["CMD", "varnishstat", "-1"]
       interval: 30s
