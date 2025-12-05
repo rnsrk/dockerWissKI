@@ -84,9 +84,7 @@ sub vcl_recv {
     }
 
     # Pass anything that's authenticated.
-    # Only pass through if there are session cookies or authorization headers.
-    if (req.http.Authorization ||
-        (req.http.Cookie && (req.http.Cookie ~ "SESS[a-z0-9]+" || req.http.Cookie ~ "SSESS[a-z0-9]+"))) {
+    if (req.http.Authorization || req.http.Cookie) {
         return (pass);
     }
 
@@ -97,15 +95,6 @@ sub vcl_backend_response {
     # Don't allow static files to set cookies.
     if (bereq.url ~ "(?i)\.(pdf|asc|dat|txt|doc|xls|ppt|tgz|csv|png|gif|jpeg|jpg|ico|swf|css|js)(\?.*)?$") {
         unset beresp.http.set-cookie;
-    }
-
-    # For WissKI navigate URLs, remove non-session cookies to allow caching.
-    if (bereq.url ~ "^/wisski/navigate/.*/view") {
-        if (beresp.http.Set-Cookie &&
-            !(beresp.http.Set-Cookie ~ "(?i)SESS[a-z0-9]+") &&
-            !(beresp.http.Set-Cookie ~ "(?i)SSESS[a-z0-9]+")) {
-            unset beresp.http.Set-Cookie;
-        }
     }
 
     # Cache 404s for 5 minutes.
@@ -127,18 +116,9 @@ sub vcl_backend_response {
     set beresp.grace = 6h;
 
     # Cache everything by default for 5 minutes.
-    # Only mark as uncacheable if Set-Cookie contains session cookies.
     if (beresp.ttl <= 0s ||
+        beresp.http.Set-Cookie ||
         beresp.http.Vary == "*") {
-        set beresp.ttl = 300s;
-        set beresp.uncacheable = true;
-        return (deliver);
-    }
-
-    # If Set-Cookie contains session cookies, don't cache.
-    if (beresp.http.Set-Cookie &&
-        (beresp.http.Set-Cookie ~ "(?i)SESS[a-z0-9]+" ||
-         beresp.http.Set-Cookie ~ "(?i)SSESS[a-z0-9]+")) {
         set beresp.ttl = 300s;
         set beresp.uncacheable = true;
         return (deliver);
