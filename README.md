@@ -1,193 +1,291 @@
-# WissKI Performance Tuned Environment
+# Docker WissKI Stack
 
 ## About
 
-This repository provides a production-ready, **performance-optimized Docker environment** for **WissKI** (Wissenschaftliche Kommunikations-Infrastruktur - Scientific Communication Infrastructure), a specialized Drupal distribution for managing and publishing scientific knowledge in the humanities and cultural heritage sectors.
+### Introduction
 
-WissKI enables semantic web capabilities, allowing you to:
+This repository provides a complete, production-ready Docker environment for **WissKI** (Wissenschaftliche Kommunikations-Infrastruktur - Scientific Communication Infrastructure), a specialized Drupal distribution designed for managing and publishing scientific knowledge in the humanities and cultural heritage sectors.
+
+WissKI extends Drupal with semantic web capabilities, enabling you to:
 - Store and manage structured data using RDF/OWL ontologies
-- Connect to triplestore databases for semantic queries
+- Connect to triplestore databases for semantic queries and reasoning
 - Build knowledge graphs and interconnected data networks
 - Publish linked open data compliant with CIDOC-CRM and other ontologies
+- Manage complex relationships between entities, concepts, and resources
 
-This Docker setup is **tuned for high performance** with Varnish caching, Redis, optimized PHP/MariaDB settings, and integrated semantic infrastructure (RDF4J triplestore, Solr search).
+This Docker stack provides a fully integrated environment with all necessary services preconfigured and ready to use, including the semantic infrastructure components required for WissKI's operation.
 
 ## Repository Contents
 
 ```
 dockerWissKI/
-├── docker-compose.yml          # Main orchestration (7 services)
-├── drupal/
-│   ├── Dockerfile             # Custom Drupal 11 + WissKI image
-│   ├── entrypoint.sh          # Initialization and auto-configuration
-│   ├── redis.settings.php     # Redis cache configuration
-│   └── set-permissions.sh     # File permissions setup
+├── docker-compose.yml          # Main orchestration file (7 services)
 ├── varnish/
-│   └── default.vcl            # Varnish caching rules for Drupal
+│   └── default.vcl            # Varnish HTTP cache configuration
 ├── rdf4j/
-│   ├── Dockerfile             # RDF4J triplestore image
-│   ├── entrypoint.sh          # RDF4J initialization
+│   ├── Dockerfile             # Custom RDF4J triplestore image
+│   ├── entrypoint.sh          # RDF4J initialization script
 │   └── default_repository.ttl # Default repository configuration
 ├── test-performance.sh         # Performance benchmarking script
 ├── example-env                 # Environment variables template
+├── CHANGELOG.md                # Changelog documenting changes
 └── LICENSE
 ```
+
+## Infrastructure Stack
+
+This environment orchestrates **7 Docker containers** that work together to provide a complete WissKI installation:
+
+### Core Services
+
+| Service | Version | Purpose | Integration |
+|---------|---------|---------|-------------|
+| **Drupal + WissKI** | 11.2.4 | Main application server with semantic web capabilities | Connects to MariaDB, Redis, RDF4J, and Solr |
+| **MariaDB** | 11.5 | Relational database for Drupal content and configuration | Primary data store for Drupal entities, users, and configuration |
+| **RDF4J** | Latest | Triplestore for RDF/semantic data storage | Stores semantic data, handles SPARQL queries, provides reasoning capabilities |
+| **Solr** | 9.7 | Full-text search engine | Indexes and searches WissKI entities and content |
+| **Redis** | 7.4 | Object cache and session storage | Caches Drupal data, stores user sessions |
+| **Varnish** | 7.6 | HTTP reverse proxy and page cache | Sits in front of Drupal, caches anonymous page requests |
+| **Adminer** | Latest | Web-based database management tool | Provides web UI for MariaDB administration |
+
+### Service Integration
+
+The services are integrated as follows:
+
+1. **Varnish → Drupal**: Varnish acts as the entry point, caching and serving requests. It forwards uncached requests to Drupal.
+2. **Drupal → MariaDB**: Drupal stores all content, configuration, users, and system data in MariaDB.
+3. **Drupal → RDF4J**: WissKI stores semantic data (RDF triples) in RDF4J via SPARQL endpoints. The triplestore handles ontology reasoning and semantic queries.
+4. **Drupal → Solr**: Drupal indexes content in Solr for full-text search capabilities.
+5. **Drupal → Redis**: Drupal uses Redis for caching rendered content, database queries, and storing user sessions.
+
+All services communicate over Docker's internal network, with health checks ensuring proper startup order and service availability.
+
+## Preconfiguration
+
+This stack comes with extensive preconfiguration to minimize setup time and provide a production-ready environment:
+
+### WissKI Default Data Model
+
+The stack automatically installs and applies the **[WissKI Default Data Model](https://drupal.org/project/wisski_default_data_model)** recipe during first startup. This provides:
+
+- **Pre-configured content types** tailored for research data and cultural heritage
+- **Semantic field structures** following best practices
+- **Default ontologies** including CIDOC-CRM support
+- **Menu structures** and navigation optimized for WissKI workflows
+- **Entity relationships** and field configurations
+
+**Configuration**: The version can be controlled via `WISSKI_DEFAULT_DATA_MODEL_VERSION` environment variable (default: `^1.3`).
+
+### WissKI Starter Recipe
+
+The **[WissKI Starter](https://drupal.org/project/wisski_starter)** recipe is automatically applied, providing:
+
+- Base WissKI installation with essential modules
+- Default adapter configuration for the triplestore
+- Core WissKI functionality and workflows
+
+**Configuration**: Version controlled via `WISSKI_STARTER_VERSION` environment variable (default: `^1.1`).
+
+### Redis Integration
+
+Redis is **automatically configured** during container startup:
+
+- Drupal Redis module is installed and enabled
+- Redis connection settings are automatically added to `settings.php`
+- Cache backend is configured for optimal performance
+- Session storage is configured to use Redis
+
+No manual configuration required—the entrypoint script handles everything.
+
+### RDF4J Triplestore
+
+The RDF4J triplestore is preconfigured with:
+
+- Default repository created automatically
+- SPARQL endpoints configured for read and write operations
+- Connection settings integrated with WissKI
+- Default graph URI configured via `DEFAULT_GRAPH` environment variable
+
+### Database Configuration
+
+MariaDB is preconfigured with:
+
+- Optimized settings for Drupal workloads
+- UTF8MB4 character set for full Unicode support
+- Transaction isolation set to READ-COMMITTED
+- Connection pooling and query optimization
+
+### Varnish Cache
+
+Varnish is preconfigured with:
+
+- Drupal-specific caching rules in `default.vcl`
+- Smart bypass rules for admin, user, and AJAX paths
+- Cookie handling for anonymous vs authenticated users
+- Grace period configuration for high availability
+
+### Development Modules
+
+The following development and utility modules are automatically installed:
+
+- **Devel**: Development tools and debugging
+- **Health Check**: System health monitoring
+- **Project Browser**: Module discovery and installation UI
+- **Automatic Updates**: Security update management
+- **OpenID Connect**: SSO integration (if configured)
+- **SSO Bouncer**: Single sign-on enforcement
 
 ## Quick Start
 
 ```bash
-# Copy and configure environment
+# 1. Copy and configure environment variables
 cp example-env .env
-nano .env  # Edit your settings
+nano .env  # Edit your settings (at minimum: passwords and domain)
 
-# Build and start
-docker compose up -d --build
+# 2. Start all services
+docker compose up -d
 
-# Check status
+# 3. Check service status
 docker compose ps
 
-# View logs
+# 4. View Drupal installation logs
 docker compose logs -f drupal
+
+# 5. Access your site
+# Main site (via Varnish): http://localhost:8000
+# Direct Drupal access: http://localhost:80
+# Adminer (database): http://localhost:8081
+# RDF4J workbench: http://localhost:8080
+# Solr admin: http://localhost:8983
 ```
 
-## Services Stack
-
-This environment includes 7 Docker containers working together:
-
-| Service | Version | Purpose | Performance Features |
-|---------|---------|---------|---------------------|
-| **Drupal + WissKI** | 11.2.4 | Main application with semantic web capabilities | PHP 8.3, OPcache + JIT, Redis integration |
-| **RDF4J** | Latest | Triplestore for RDF/semantic data storage | 4GB heap, optimized for SPARQL queries |
-| **MariaDB** | 11.5 | Relational database for Drupal content | 1GB buffer pool, query cache enabled |
-| **Solr** | 9.7 | Full-text search engine | 1GB heap, optimized for WissKI entities |
-| **Redis** | 7.4 | Object cache + session storage | 512MB, LRU eviction, persistence enabled |
-| **Varnish** | 7.6 | HTTP reverse proxy cache | 256MB cache, Drupal-aware VCL rules |
-| **Adminer** | Latest | Web-based database management | Lightweight phpMyAdmin alternative |
+The first startup will take several minutes as Drupal is installed, modules are downloaded, and recipes are applied. Monitor the logs to track progress.
 
 ## Access Points
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Drupal (via Varnish)** | http://localhost:3005 | **Main site (use this!)** |
-| Drupal (direct) | http://localhost:3000 | Direct Apache access |
-| Adminer | http://localhost:3001 | Database admin |
-| RDF4J | http://localhost:3002 | Triplestore workbench |
-| Solr | http://localhost:3003 | Search admin |
+| Service | URL | Purpose | Credentials |
+|---------|-----|---------|-------------|
+| **Drupal (via Varnish)** | http://localhost:${VARNISH_PORT:-8000} | **Main site - use this for best performance** | Set in `.env` |
+| Drupal (direct) | http://localhost:${DRUPAL_PORT:-80} | Direct Apache access (bypasses cache) | Set in `.env` |
+| Adminer | http://localhost:${ADMINER_PORT:-8081} | Database administration UI | MariaDB credentials from `.env` |
+| RDF4J Workbench | http://localhost:${RDF4J_PORT:-8080} | Triplestore management and SPARQL queries | Optional auth in `.env` |
+| Solr Admin | http://localhost:${SOLR_PORT:-8983} | Search index administration | None by default |
 
-> **Note:** Access Drupal via Varnish (port 3005) for best performance!
-
-## Performance Features
-
-### 1. Varnish HTTP Cache
-- Caches full pages for anonymous users
-- Serves pages in 20-50ms (vs 500-2000ms without)
-- Smart VCL rules bypass admin/user pages
-- 6-hour grace period (site stays up if Drupal crashes)
-
-### 2. Redis Object Cache
-- **Automatically configured** on container start
-- Drupal Redis module installed and enabled
-- Caches rendered blocks, queries, sessions
-- 512MB memory with LRU eviction
-
-### 3. PHP 8.3 Optimizations
-- **OPcache:** 512MB with JIT compilation (40-60% faster)
-- **APCu:** 256MB user cache
-- **Redis extension:** For distributed caching
-
-### 4. MariaDB Tuning
-- **1GB buffer pool** (vs 128MB default)
-- Query cache enabled (64MB)
-- Optimized for InnoDB (99% queries from RAM)
-- 3-5x faster database operations
-
-### 5. Apache Optimizations
-- Gzip + Brotli compression (70-80% smaller files)
-- Browser caching headers (1 year for static assets)
-- HTTP/2 support
-- Keep-Alive connections
-
-## Verify It's Working
-
-```bash
-# Check Varnish cache hits
-curl -I http://localhost:3005
-# Look for: X-Varnish-Cache: HIT
-
-# Check Redis connection
-docker exec wisski-performance-tuned-redis redis-cli ping
-# Should return: PONG
-
-# Check Redis module in Drupal
-docker exec wisski-performance-tuned-drupal drush pm:list --status=enabled | grep redis
-# Should show: redis (Enabled)
-
-# Check OPcache status
-docker exec wisski-performance-tuned-drupal php -i | grep opcache.enable
-# Should show: opcache.enable => On => On
-```
-
-## Resource Usage
-
-Each service has resource limits to prevent any single service from consuming all resources:
-
-- **Drupal:** 2 CPU, 2GB RAM
-- **MariaDB:** 2 CPU, 2GB RAM
-- **RDF4J:** 2 CPU, 5GB RAM
-- **Solr:** 1 CPU, 1.5GB RAM
-- **Redis:** 1 CPU, 768MB RAM
-- **Varnish:** 1 CPU, 512MB RAM
-
-**Total recommended:** 8GB+ RAM, 4+ CPU cores
+> **Note:** Always access Drupal through Varnish (port 8000 by default) in production for optimal performance and caching.
 
 ## Configuration
 
-The `example-env` file contains all configurable environment variables. Copy it to `.env` and customize:
+### Environment Variables
 
-### Key Configuration Options
+The `example-env` file contains all configurable environment variables. Copy it to `.env` and customize for your needs:
 
-**WissKI/Drupal Settings:**
-- `DRUPAL_DOMAIN` - Domain name (default: localhost)
-- `DRUPAL_USER/DRUPAL_PASSWORD` - Admin credentials (default: admin/admin)
-- `SITE_NAME` - Site display name (default: "My WissKI")
-- `WISSKI_STARTER_VERSION` - WissKI recipe version (default: 1.x-dev)
-- `WISSKI_DEFAULT_DATA_MODEL_VERSION` - Data model version (default: 1.x-dev)
+#### WissKI/Drupal Settings
 
-**Triplestore Settings:**
-- `TS_REPOSITORY` - RDF4J repository name (must be "default")
-- `DEFAULT_GRAPH` - Default RDF graph URI
-- `TS_USERNAME/TS_PASSWORD` - Optional authentication
+- `DRUPAL_DOMAIN` - Main domain name for your site (default: `localhost`)
+- `DRUPAL_USER` / `DRUPAL_PASSWORD` - Administrator account credentials (default: `admin` / `admin`)
+- `SITE_NAME` - Site name displayed in headers (default: `My WissKI`)
+- `DRUPAL_TRUSTED_HOST` - Allowed HTTP Host headers (default: `'^localhost$','^127\.0\.0\.1$'`)
+- `DRUPAL_LOCALE` - Site language/locale
+- `WISSKI_DEFAULT_DATA_MODEL_VERSION` - Version of default data model recipe (default: `1.3.0`)
+- `WISSKI_STARTER_VERSION` - Version of WissKI starter recipe (default: `1.1.0`)
 
-**Service Ports:**
-- `VARNISH_PORT` - HTTP cache (default: 3005)
-- `DRUPAL_PORT` - Direct Drupal access (default: 3000)
-- `ADMINER_PORT` - Database UI (default: 3001)
-- `RDF4J_PORT` - Triplestore (default: 3002)
-- `SOLR_PORT` - Search admin (default: 3003)
-- `REDIS_PORT` - Redis (default: 3004)
+#### Triplestore & RDF Settings
 
-**Database:**
-- `DB_NAME/DB_USER/DB_PASSWORD` - Database credentials
-- `DB_ROOT_PASSWORD` - MariaDB root password
+- `TS_REPOSITORY` - RDF4J repository name (default: `default`)
+- `DEFAULT_GRAPH` - Default named graph URI for triples (default: `https://my.wiss-ki.eu/`)
+- `TS_USERNAME` / `TS_PASSWORD` - Optional RDF4J authentication
+- `TS_READ_URL` - SPARQL read endpoint (auto-configured)
+- `TS_WRITE_URL` - SPARQL write endpoint (auto-configured)
 
-## Documentation
+#### Database Settings
 
-- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** - Detailed explanation of all optimizations with comparison tables
-- **[varnish/default.vcl](varnish/default.vcl)** - Varnish configuration (Drupal-specific caching rules)
-- **[drupal/redis.settings.php](drupal/redis.settings.php)** - Redis cache configuration
-- **[test-performance.sh](test-performance.sh)** - Automated performance testing script
+- `DB_NAME` - MariaDB database name (default: `DATABASE`)
+- `DB_USER` / `DB_PASSWORD` - MariaDB user credentials (default: `DBUSER` / `USERPW`)
+- `DB_ROOT_PASSWORD` - MariaDB root password (default: `ROOTPW`)
+
+#### Service Ports
+
+- `DRUPAL_PORT` - Drupal HTTP port (default: `80`)
+- `VARNISH_PORT` - Varnish HTTP port (default: `8000`)
+- `ADMINER_PORT` - Adminer port (default: `8081`)
+- `RDF4J_PORT` - RDF4J port (default: `8080`)
+- `SOLR_PORT` - Solr port (default: `8983`)
+- `REDIS_PORT` - Redis port (default: `6379`)
+
+See `example-env` for the complete list with detailed documentation.
+
+## Performance Optimizations
+
+This stack includes performance optimizations for production use:
+
+### Caching Layers
+
+1. **Varnish HTTP Cache**: Full-page caching for anonymous users, serving pages in 20-50ms
+2. **Redis Object Cache**: Caches rendered blocks, database queries, and user sessions
+3. **PHP OPcache**: Bytecode caching with JIT compilation for 40-60% performance improvement
+4. **MariaDB Query Cache**: Reduces database load for repeated queries
+
+### Database Optimizations
+
+- **InnoDB Buffer Pool**: 1GB (vs 128MB default) for better memory utilization
+- **Connection Pooling**: Optimized connection limits and timeouts
+- **Query Optimization**: Indexes and query cache configured for Drupal workloads
+
+### Resource Management
+
+All services have defined resource limits to prevent resource contention:
+
+- **Drupal**: 2 CPU, 2GB RAM
+- **MariaDB**: 2 CPU, 2GB RAM
+- **RDF4J**: 2 CPU, 5GB RAM
+- **Solr**: 1 CPU, 1.5GB RAM
+- **Redis**: 1 CPU, 768MB RAM
+- **Varnish**: 1 CPU, 512MB RAM
+
+**Total recommended**: 8GB+ RAM, 4+ CPU cores
+
+## Verification
+
+Verify that all services are working correctly:
+
+```bash
+# Check Varnish cache
+curl -I http://localhost:8000
+# Look for: X-Varnish-Cache: HIT or MISS
+
+# Check Redis connection
+docker exec wisski--redis redis-cli ping
+# Should return: PONG
+
+# Check Redis module in Drupal
+docker exec wisski--drupal drush pm:list --status=enabled | grep redis
+# Should show: redis (Enabled)
+
+# Check RDF4J connectivity
+curl http://localhost:8080/rdf4j-server/repositories/default
+# Should return repository information
+
+# Check Solr
+curl http://localhost:8983/solr/admin/info/system
+# Should return system information
+```
 
 ## Maintenance
 
+### Common Tasks
+
 ```bash
-# Rebuild containers after config changes
+# Rebuild containers after configuration changes
 docker compose up -d --build
 
 # Clear Drupal cache
-docker exec wisski-performance-tuned-drupal drush cr
+docker exec wisski--drupal drush cr
 
 # Clear Redis cache
-docker exec wisski-performance-tuned-redis redis-cli FLUSHALL
+docker exec wisski--redis redis-cli FLUSHALL
+
+# View service logs
+docker compose logs -f [service-name]
 
 # View resource usage
 docker stats
@@ -196,51 +294,53 @@ docker stats
 docker compose down
 tar -czf backup.tar.gz \
   -C /var/lib/docker/volumes \
-  wisski-tuned_drupal-data \
-  wisski-tuned_mariadb-data \
-  wisski-tuned_rdf4j-data
+  drupal-data \
+  mariadb-data \
+  private-files \
+  rdf4j-data \
+  solr-data \
+  redis-data
 ```
 
 ## Troubleshooting
 
-### Redis Not Working?
+### Redis Not Working
 
 ```bash
 # Check if Redis module is enabled
-docker exec wisski-performance-tuned-drupal drush pm:enable redis -y
-docker exec wisski-performance-tuned-drupal drush cr
+docker exec wisski--drupal drush pm:enable redis -y
+docker exec wisski--drupal drush cr
 
-# Manually add to settings.php if auto-config failed
-docker exec wisski-performance-tuned-drupal bash -c \
-  "echo \"include '/var/configs/redis.settings.php';\" >> /opt/drupal/web/sites/default/settings.php"
+# Verify Redis connection in settings.php
+docker exec wisski--drupal cat /opt/drupal/web/sites/default/settings.php | grep redis
 ```
 
-### Varnish Not Caching?
+### Varnish Not Caching
 
-- Check you're accessing via port 3005 (not 3000)
-- Make sure you're not logged in (Varnish only caches anonymous users)
-- Check cookies aren't preventing caching: `curl -I http://localhost:3005`
+- Ensure you're accessing via Varnish port (8000 by default), not direct Drupal port
+- Verify you're not logged in (Varnish only caches anonymous users)
+- Check Varnish logs: `docker compose logs varnish`
 
-### High Memory Usage?
+### Services Not Starting
 
-This is normal! Tuned environment trades memory for speed:
-- **Slow environment:** ~4GB total
-- **Tuned environment:** ~8-10GB total
+- Check health status: `docker compose ps`
+- View service logs: `docker compose logs [service-name]`
+- Verify environment variables are set correctly in `.env`
+- Ensure sufficient system resources (RAM, CPU)
 
-If you have less RAM, reduce settings in `docker-compose.yml`:
-- MariaDB: `innodb-buffer-pool-size=512M`
-- RDF4J: `JAVA_OPTS=-Xms512m -Xmx2g`
-- Redis: `maxmemory 256mb`
+### High Memory Usage
 
-## Comparison to "Slow" Environment
+This is expected for a production-tuned environment:
+- **Minimal setup**: ~4GB total
+- **Tuned setup**: ~8-10GB total
 
-| Metric | Slow | Tuned | Improvement |
-|--------|------|-------|-------------|
-| Page load (anonymous) | ~2000ms | ~50ms | **40x faster** |
-| Page load (authenticated) | ~2000ms | ~400ms | **5x faster** |
-| Database query time | ~100ms | ~20-30ms | **3-5x faster** |
-| Concurrent users | ~50 | ~500+ | **10x more** |
-| Memory usage | ~4GB | ~8-10GB | Trade-off |
+To reduce memory usage, adjust resource limits in `docker-compose.yml` or reduce buffer pool sizes.
+
+## Documentation
+
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed changelog of changes and improvements
+- **[varnish/default.vcl](varnish/default.vcl)** - Varnish configuration with Drupal-specific rules
+- **[test-performance.sh](test-performance.sh)** - Automated performance testing script
 
 ## License
 
@@ -248,12 +348,15 @@ See [LICENSE](LICENSE) file.
 
 ## Credits
 
-Based on:
-- [Drupal Performance Best Practices](https://www.drupal.org/docs/7/managing-site-performance-and-scalability/optimizing-drupal-to-load-faster-server-mysql-caching-theming-html)
-- Drupal 11 recommendations
-- PHP 8.3 JIT compiler features
-- Modern web performance standards
+This stack integrates:
+- [Drupal](https://www.drupal.org/) - Content management framework
+- [WissKI](https://wiss-ki.eu/) - Semantic web extension for Drupal
+- [RDF4J](https://rdf4j.org/) - Java framework for working with RDF data
+- [Solr](https://solr.apache.org/) - Enterprise search platform
+- [Varnish](https://varnish-cache.org/) - HTTP accelerator
+- [Redis](https://redis.io/) - In-memory data store
+- [MariaDB](https://mariadb.org/) - Database server
 
 ---
 
-**Last Updated:** November 24, 2025
+**Last Updated:** December 8, 2025

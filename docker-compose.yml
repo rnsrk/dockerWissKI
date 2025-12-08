@@ -2,7 +2,7 @@ services:
 
   drupal:
     image: ghcr.io/soda-collections-objects-data-literacy/wisski-base-image-${MODE:-production}:${WISSKI_BASE_IMAGE_VERSION:-latest}
-    container_name: wisski-performance-tuned-drupal
+    container_name: dockerwisski--drupal
     depends_on:
       mariadb:
         condition: service_healthy
@@ -26,7 +26,7 @@ services:
       DOMAIN: ${DRUPAL_DOMAIN:-localhost}
       DRUPAL_LOCALE: ${DRUPAL_LOCALE}
       DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
-      DRUPAL_TRUSTED_HOST: ${DRUPAL_DOMAIN:-localhost}
+      DRUPAL_TRUSTED_HOST: ${DRUPAL_TRUSTED_HOST:-"^localhost$"}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       MODE: ${MODE:-production}
       REDIS_HOST: redis
@@ -61,7 +61,7 @@ services:
 
   mariadb:
     image: mariadb:11.5
-    container_name: wisski-performance-tuned-mariadb
+    container_name: dockerwisski--mariadb
     restart: always
     command: >
         --transaction-isolation=READ-COMMITTED
@@ -128,7 +128,7 @@ services:
 
   solr:
     image: solr:9.7
-    container_name: wisski-performance-tuned-solr
+    container_name: dockerwisski--solr
     restart: always
     ulimits:
       nofile:
@@ -159,7 +159,7 @@ services:
 
   adminer:
     image: adminer
-    container_name: wisski-performance-tuned-adminer
+    container_name: dockerwisski--adminer
     restart: always
     ports:
       - ${ADMINER_PORT:-8081}:8080
@@ -167,7 +167,7 @@ services:
   rdf4j:
     build:
       context: rdf4j
-    container_name: wisski-performance-tuned-rdf4j
+    container_name: dockerwisski--rdf4j
     restart: always
     environment:
       - JAVA_OPTS=-Xms1g -Xmx4g
@@ -194,7 +194,7 @@ services:
 
   redis:
     image: redis:7.4-alpine
-    container_name: wisski-performance-tuned-redis
+    container_name: dockerwisski--redis
     restart: always
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly yes
     volumes:
@@ -217,7 +217,7 @@ services:
 
   varnish:
     image: varnish:7.6
-    container_name: wisski-performance-tuned-varnish
+    container_name: dockerwisski--varnish
     restart: always
     depends_on:
       drupal:
