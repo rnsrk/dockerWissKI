@@ -26,7 +26,7 @@ services:
       DOMAIN: ${DRUPAL_DOMAIN:-localhost}
       DRUPAL_LOCALE: ${DRUPAL_LOCALE}
       DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
-      DRUPAL_TRUSTED_HOST: ${DRUPAL_TRUSTED_HOST:-"^localhost$"}
+      DRUPAL_TRUSTED_HOST: ${DRUPAL_TRUSTED_HOST:-^localhost$}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       MODE: ${MODE:-production}
       REDIS_HOST: redis
