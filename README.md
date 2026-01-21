@@ -183,7 +183,7 @@ The `example-env` file contains all configurable environment variables. Copy it 
 
 - `DRUPAL_DOMAIN` - Main domain name for your site (default: `localhost`)
 - `DRUPAL_USER` / `DRUPAL_PASSWORD` - Administrator account credentials (default: `admin` / `admin`)
-- `SITE_NAME` - Site name displayed in headers (default: `My WissKI`)
+- `DRUPAL_SITE_NAME` - Site name displayed in headers (default: `My WissKI`)
 - `DRUPAL_TRUSTED_HOST` - Allowed HTTP Host headers (default: `'^localhost$','^127\.0\.0\.1$'`)
 - `DRUPAL_LOCALE` - Site language/locale
 - `WISSKI_DEFAULT_DATA_MODEL_VERSION` - Version of default data model recipe (default: `1.3.0`)

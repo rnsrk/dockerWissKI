@@ -1,4 +1,12 @@
 # Changelog
+
+## [Unreleased]
+
+### Fixed
+- Fixed `example-env` to use pipe separators (`|`) for `DRUPAL_TRUSTED_HOST` patterns instead of comma-separated values, matching the expected format in wisski-base-image entrypoint.sh.
+
+## 1.0.1
+- corrected trusted host env
 ## 1.0.0
 ### Performance Tuned Branch (vs main)
 
