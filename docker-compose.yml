@@ -28,7 +28,7 @@ services:
       DRUPAL_PRIVATE_FILES_DIR: ${DRUPAL_PRIVATE_FILES_DIR:-/opt/drupal/private_files}
       DRUPAL_PROXY_ADDRESSES: ${DRUPAL_PROXY_ADDRESSES:-}
       DRUPAL_SITE_NAME: ${DRUPAL_SITE_NAME:-My WissKI}
-      DRUPAL_TRUSTED_HOSTS: ${DRUPAL_TRUSTED_HOST:-'"^localhost$","^127\.0\.0\.1$"'}
+      DRUPAL_TRUSTED_HOSTS: ${DRUPAL_TRUSTED_HOSTS:-'^localhost$|^127\.0\.0\.1$'}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       MODE: ${MODE:-production}
       REDIS_HOST: redis
