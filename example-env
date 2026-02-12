@@ -21,8 +21,10 @@ DRUPAL_PASSWORD=admin
 DRUPAL_PORT=80
 # When outside /opt/drupal/, ensure existence and permissions
 DRUPAL_PRIVATE_FILES_DIR=/opt/drupal/private_files
+# If you are using a proxy, you can set the proxy addresses here
+DRUPAL_PROXY_ADDRESSES=
 DRUPAL_SITE_NAME=My WissKI
-DRUPAL_TRUSTED_HOST='^localhost$|^127\.0\.0\.1$'
+DRUPAL_TRUSTED_HOSTS='^localhost$|^127\.0\.0\.1$'
 DRUPAL_USER=admin
 DRUPAL_VERSION=php8.3-fpm-bookworm
 
