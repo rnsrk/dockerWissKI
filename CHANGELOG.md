@@ -2,8 +2,26 @@
 
 ## [Unreleased]
 
+## 2.0.0
+
 ### Fixed
 - Fixed `example-env` to use pipe separators (`|`) for `DRUPAL_TRUSTED_HOST` patterns instead of comma-separated values, matching the expected format in wisski-base-image entrypoint.sh.
+
+### Changed
+- Renamed `SITE_NAME` to `DRUPAL_SITE_NAME`.
+- Renamed `DEFAULT_GRAPH` to `WISSKI_DEFAULT_GRAPH`.
+- Renamed `DOMAIN` to `DRUPAL_DOMAIN`.
+- Updated default values for `WISSKI_DEFAULT_DATA_MODEL_VERSION` and `WISSKI_STARTER_VERSION` to `1.x-dev`.
+- `TS_USERNAME` and `TS_PASSWORD` now have default values (`ts_user` / `ts_password`) instead of empty strings.
+- Reorganized `example-env` and `docker-compose.yml` environment variables for consistency.
+
+### Added
+- `DRUPAL_PRIVATE_FILES_DIR` environment variable for private files directory.
+- `DRUPAL_VERSION` for PHP/Drupal base image version.
+- `WISSKI_BASE_IMAGE_VERSION` for WissKI base image version.
+- `REDIS_HOST` in example-env.
+- `TS_TOKEN` for RDF4J token authentication.
+- `DRUPAL_LOCALE` in example-env.
 
 ## 1.0.1
 - corrected trusted host env

@@ -336,6 +336,10 @@ This is expected for a production-tuned environment:
 
 To reduce memory usage, adjust resource limits in `docker-compose.yml` or reduce buffer pool sizes.
 
+### Health check fails
+
+- set higher timeouts (start_period: XXXs)
+
 ## Documentation
 
 - **[CHANGELOG.md](CHANGELOG.md)** - Detailed changelog of changes and improvements

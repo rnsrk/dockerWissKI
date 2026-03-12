@@ -2,3 +2,4 @@
 *.env
 volumes
 private_files
+docker-compose.override.yml

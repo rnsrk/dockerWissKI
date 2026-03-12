@@ -27,7 +27,7 @@ services:
       DRUPAL_PASSWORD: ${DRUPAL_PASSWORD:-admin}
       DRUPAL_PRIVATE_FILES_DIR: ${DRUPAL_PRIVATE_FILES_DIR:-/opt/drupal/private_files}
       DRUPAL_SITE_NAME: ${DRUPAL_SITE_NAME:-My WissKI}
-      DRUPAL_TRUSTED_HOST: ${DRUPAL_TRUSTED_HOST:-'"^localhost$","^127\.0\.0\.1$"'}
+      DRUPAL_TRUSTED_HOSTS: ${DRUPAL_TRUSTED_HOSTS:-'"^localhost$","^127\.0\.0\.1$"'}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       MODE: ${MODE:-production}
       REDIS_HOST: redis
@@ -58,7 +58,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 180s
+      start_period: 240s
 
   mariadb:
     image: mariadb:11.5
