@@ -20,6 +20,7 @@ This Docker stack provides a fully integrated environment with all necessary ser
 ```
 dockerWissKI/
 ├── docker-compose.yml          # Main orchestration file (7 services)
+├── docker-compose.apple-silicon.yml  # Apple Silicon workaround (Rosetta emulation)
 ├── varnish/
 │   └── default.vcl            # Varnish HTTP cache configuration
 ├── rdf4j/
@@ -144,6 +145,9 @@ nano .env  # Edit your settings (at minimum: passwords and domain)
 
 # 2. Start all services
 docker compose up -d
+
+# On Apple Silicon (M1/M2/M3) with manifest errors, use:
+# docker compose -f docker-compose.yml -f docker-compose.apple-silicon.yml up -d
 
 # 3. Check service status
 docker compose ps
@@ -303,6 +307,26 @@ tar -czf backup.tar.gz \
 ```
 
 ## Troubleshooting
+
+### Apple Silicon (M1/M2/M3) – "no matching manifest for linux/arm64/v8"
+
+On Apple Silicon Macs, some images may fail to pull with:
+
+```
+no matching manifest for linux/arm64/v8 in the manifest list entries
+```
+
+**Workaround:** Run amd64 images via Rosetta emulation:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.apple-silicon.yml up -d
+```
+
+This uses `docker-compose.apple-silicon.yml`, which forces all services to use `platform: linux/amd64`. Containers run under emulation, so performance is lower than native arm64.
+
+To make this the default, copy the override: `cp docker-compose.apple-silicon.yml docker-compose.override.yml`. Docker Compose automatically applies `docker-compose.override.yml` when present.
+
+**Long-term:** The wisski-base-image is built for both linux/amd64 and linux/arm64. A CI fix (provenance disabled) was added in wisski-base-image 2.3.1 to resolve manifest resolution on Apple Silicon. Ensure you pull the latest image after the fix is released. The workaround remains available if needed.
 
 ### Failed to bind port
 

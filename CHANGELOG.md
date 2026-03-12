@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1
+
+### Added
+- Apple Silicon (M1/M2/M3) workaround: `docker-compose.apple-silicon.yml` to run amd64 images via Rosetta emulation when "no matching manifest for linux/arm64/v8" occurs.
+
+### Changed
+- README: Added troubleshooting section for Apple Silicon and manifest errors.
+
 ## 2.0.0
 
 ### Breaking Changes
