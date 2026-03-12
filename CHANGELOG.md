@@ -1,11 +1,15 @@
 # Changelog
 
-## [Unreleased]
-
 ## 2.0.0
 
+### Breaking Changes
+- **Environment variable renames** (update your `.env` when upgrading from 1.x):
+  - `SITE_NAME` → `DRUPAL_SITE_NAME`
+  - `DEFAULT_GRAPH` → `WISSKI_DEFAULT_GRAPH`
+  - `DOMAIN` → `DRUPAL_DOMAIN`
+
 ### Fixed
-- Fixed `example-env` to use pipe separators (`|`) for `DRUPAL_TRUSTED_HOST` patterns instead of comma-separated values, matching the expected format in wisski-base-image entrypoint.sh.
+- Fixed `example-env` to use pipe separators (`|`) for `DRUPAL_TRUSTED_HOSTS` patterns instead of comma-separated values, matching the expected format in wisski-base-image entrypoint.sh.
 
 ### Changed
 - Renamed `SITE_NAME` to `DRUPAL_SITE_NAME`.
@@ -24,7 +28,9 @@
 - `DRUPAL_LOCALE` in example-env.
 
 ## 1.0.1
-- corrected trusted host env
+
+### Fixed
+- Corrected trusted host environment variable configuration.
 ## 1.0.0
 ### Performance Tuned Branch (vs main)
 
