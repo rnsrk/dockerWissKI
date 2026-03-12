@@ -7,9 +7,10 @@ services:
       mariadb:
         condition: service_healthy
         restart: true
-      redis:
-        condition: service_healthy
       rdf4j:
+        condition: service_healthy
+        restart: true
+      redis:
         condition: service_healthy
         restart: true
       solr:
@@ -58,7 +59,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 240s
+      start_period: ${DRUPAL_START_PERIOD:-300s}
 
   mariadb:
     image: mariadb:11.5

@@ -304,6 +304,10 @@ tar -czf backup.tar.gz \
 
 ## Troubleshooting
 
+### Failed to bind port
+
+Check XXXX_PORT environment variables, usually port 80/8080 are bind to existing http servers and 3306 to database.
+
 ### Redis Not Working
 
 ```bash
