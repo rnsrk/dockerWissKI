@@ -25,6 +25,9 @@ DRUPAL_SITE_NAME=My WissKI
 DRUPAL_START_PERIOD=300s
 DRUPAL_TRUSTED_HOSTS='^localhost$|^127\.0\.0\.1$'
 DRUPAL_USER=admin
+# No Traefik: Drupal sees direct HTTP (port 80) or Varnish (port 8000) without TLS headers.
+# Leave at none for local/standalone use. Set to auto when deploying behind Traefik (SCS).
+DRUPAL_PROXY_ADDRESSES=none
 
 # WissKI settings
 WISSKI_BASE_IMAGE_VERSION=latest
