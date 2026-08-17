@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/2.0.1...HEAD)
 
 ### Breaking Changes
 - Drupal image is built in this repository (`drupal/`) and published to `ghcr.io/rnsrk/dockerwisski-{production,development}`. The SODA `wisski-base-image` pull is gone.
@@ -31,7 +31,7 @@
 - Compose logs stay quiet: authproxy no longer prints every SPARQL request, PHP-FPM access logs are off, Redis is `warning`, authproxy healthcheck is 30s.
 - Xdebug can write `/var/log/xdebug/xdebug.log` as www-data (entrypoint Drush no longer leaves a root-owned file that PHP-FPM cannot open).
 
-## [2.0.1] - 2026-03-12
+## [2.0.1](https://github.com/rnsrk/dockerWissKI/compare/2.0.0...2.0.1) - 2026-03-12
 
 ### Added
 - Apple Silicon (M1/M2/M3) workaround: `docker-compose.apple-silicon.yml` to run amd64 images via Rosetta emulation when "no matching manifest for linux/arm64/v8" occurs.
@@ -39,7 +39,7 @@
 ### Changed
 - README: Added troubleshooting section for Apple Silicon and manifest errors.
 
-## [2.0.0] - 2026-03-12
+## [2.0.0](https://github.com/rnsrk/dockerWissKI/compare/1.0.1...2.0.0) - 2026-03-12
 
 ### Breaking Changes
 - **Environment variable renames** (update your `.env` when upgrading from 1.x):
@@ -66,12 +66,12 @@
 - `TS_TOKEN` for RDF4J token authentication.
 - `DRUPAL_LOCALE` in example-env.
 
-## [1.0.1] - 2025-12-18
+## [1.0.1](https://github.com/rnsrk/dockerWissKI/compare/1.0.0...1.0.1) - 2025-12-18
 
 ### Fixed
 - Corrected trusted host environment variable configuration.
 
-## [1.0.0] - 2025-12-08
+## [1.0.0](https://github.com/rnsrk/dockerWissKI/releases/tag/1.0.0) - 2025-12-08
 ### Performance Tuned Branch (vs main)
 
 This changelog documents all changes between the `main` and `tuned` branches, focusing on performance optimizations and infrastructure improvements.

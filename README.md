@@ -95,10 +95,9 @@ docker-compose.override.yml        # local build + operator ports
 docker-compose.development.yml     # HTTP → Drupal, Xdebug
 docker-compose.production.yml      # HTTP → Varnish
 docker-compose.apple-silicon.yml   # amd64 via Rosetta (append to COMPOSE_FILE)
-env/development.env
-env/production.env
-.env.example                       # same as development, passwords/emails empty
-drupal/                            # image (Dockerfile, entrypoint, PHP/Nginx)
+env/development.env                # copy to .env for development
+env/production.env                 # copy to .env for production
+drupal/                            # PHP 8.3 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                           # git submodule (FAU-CDI/open_gdb)
 config/postgres/                   # Postgres init (pg_trgm)
 config/varnish/default.vcl         # Varnish (production profile)
