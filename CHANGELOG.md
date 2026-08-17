@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.0.0
+
+### Breaking Changes
+- Drupal image is built in this repository (`drupal/`) and published to `ghcr.io/rnsrk/dockerwisski-{production,development}`. The SODA `wisski-base-image` pull is gone.
+- MariaDB is replaced by PostgreSQL 16 (`pg_trgm` required). Volume `mariadb-data` is not reused.
+- The local RDF4J image is replaced by an [OpenGDB](https://github.com/FAU-CDI/open_gdb) git submodule (`git clone --recurse-submodules`).
+- Only `web/sites` and `private-files` persist; the Drupal codebase is immutable in the image.
+- Development and production are env presets (`env/development.env`, `env/production.env`). Varnish starts only with the `production` Compose profile. pgAdmin is the `tools` profile.
+- Nextcloud, Keycloak/OIDC, Traefik, and Adminer wiring are removed. Database UI is pgAdmin.
+
+### Added
+- PHP-FPM + Nginx Drupal image sources, GitHub Actions GHCR publish (linux/amd64).
+- Compose Specification layout: `include` for OpenGDB, `COMPOSE_FILE` in `.env`, committed `docker-compose.override.yml`.
+- Site extras via persistent `composer.local.json` (re-applied onto each new image at boot), plus volumes for `web/modules/custom` and `web/themes/custom`.
+
 ## 2.0.1
 
 ### Added
