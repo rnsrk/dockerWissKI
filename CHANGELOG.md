@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Optional `solr` Compose profile (off until a Search API core exists).
+- OpenGDB RDF4J entrypoint (named-volume UID) and nginx template with a short Docker DNS TTL.
+- pgAdmin `servers.json` filled from `DB_*` on every start.
+- Development Drupal image CLI helpers (ripgrep, fd, jq, and related tools).
+- `ENTRYPOINT_DEBUG` to trace the Drupal entrypoint without flooding Compose logs.
+
+### Changed
+- Drupal SPARQL talks to `authproxy:8000` (OpenGDB ACLs). First install creates the repository via `POST /rest/repositories`.
+- WissKI packages pin `3.7.0`.
+- Redis persistence is RDB only. PostgreSQL buffers are sized for typical laptop RAM.
+- Production PHP-FPM pool is sized for the 2G Drupal cgroup.
+- First install skips `drush locale-update` (run later if you need contrib translations).
+- `.env.example` leaves passwords and emails empty.
+
+### Fixed
+- `composer.local.json` apply uses `--update-no-dev` so extras install onto a production lock.
+- Drupal redirects keep the published host port (`absolute_redirect off` and `HTTP_HOST $http_host`).
+- SALZ adapter read/write URLs are synced on every boot.
+
+### Removed
+- Leftover `test-performance.sh` from the old tuned stack.
+
 ## 3.0.0
 
 ### Breaking Changes
