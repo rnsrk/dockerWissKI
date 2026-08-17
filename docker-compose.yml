@@ -120,7 +120,7 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly no
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly no --loglevel warning
     volumes:
       - redis-data:/data
     healthcheck:
@@ -239,13 +239,21 @@ services:
         condition: service_started
 
   authproxy:
+    # OpenGDB uWSGI logs every SPARQL query string to stdout. Keep 4xx/5xx.
+    command:
+      - uwsgi
+      - --ini
+      - /app/docker/uwsgi.ini
+      - --disable-logging
+      - --log-4xx
+      - --log-5xx
     healthcheck:
       test:
         [
           "CMD-SHELL",
           "wget -q -O /dev/null --timeout=3 http://127.0.0.1:8000/admin/login/",
         ]
-      interval: 5s
+      interval: 30s
       timeout: 5s
       retries: 18
       start_period: 40s

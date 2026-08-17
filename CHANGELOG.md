@@ -28,6 +28,7 @@
 - Drupal redirects keep the published host port.
 - SALZ adapter read/write URLs are synced on every boot so they stay on authproxy after image or URL changes.
 - PHP-FPM listens on `/run/php/php-fpm.sock` on `php:8.3-fpm` (nginx no longer 502s; Varnish can become healthy).
+- Compose logs stay quiet: authproxy no longer prints every SPARQL request, PHP-FPM access logs are off, Redis is `warning`, authproxy healthcheck is 30s.
 - Xdebug can write `/var/log/xdebug/xdebug.log` as www-data (entrypoint Drush no longer leaves a root-owned file that PHP-FPM cannot open).
 
 ## [2.0.1] - 2026-03-12
