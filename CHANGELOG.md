@@ -2,45 +2,32 @@
 
 ## [Unreleased]
 
-### Added
-- Optional `solr` Compose profile (off until a Search API core exists).
-- OpenGDB RDF4J entrypoint (named-volume UID) and nginx template with a short Docker DNS TTL.
-- pgAdmin `servers.json` filled from `DB_*` on every start.
-- Development Drupal image CLI helpers (ripgrep, fd, jq, and related tools).
-- `ENTRYPOINT_DEBUG` to trace the Drupal entrypoint without flooding Compose logs.
-
-### Changed
-- Drupal SPARQL talks to `authproxy:8000` (OpenGDB ACLs). First install creates the repository via `POST /rest/repositories`.
-- WissKI packages pin `3.7.0`.
-- Redis persistence is RDB only. PostgreSQL buffers are sized for typical laptop RAM.
-- Production PHP-FPM pool is sized for the 2G Drupal cgroup.
-- First install skips `drush locale-update` (run later if you need contrib translations).
-- `.env.example` leaves passwords and emails empty.
-
-### Fixed
-- `composer.local.json` apply uses `--update-no-dev` so extras install onto a production lock.
-- Drupal redirects keep the published host port (`absolute_redirect off` and `HTTP_HOST $http_host`).
-- SALZ adapter read/write URLs are synced on every boot.
-
-### Removed
-- Leftover `test-performance.sh` from the old tuned stack.
-
-## 3.0.0
-
 ### Breaking Changes
 - Drupal image is built in this repository (`drupal/`) and published to `ghcr.io/rnsrk/dockerwisski-{production,development}`. The SODA `wisski-base-image` pull is gone.
 - MariaDB is replaced by PostgreSQL 16 (`pg_trgm` required). Volume `mariadb-data` is not reused.
-- The local RDF4J image is replaced by an [OpenGDB](https://github.com/FAU-CDI/open_gdb) git submodule (`git clone --recurse-submodules`).
-- Only `web/sites` and `private-files` persist; the Drupal codebase is immutable in the image.
-- Development and production are env presets (`env/development.env`, `env/production.env`). Varnish starts only with the `production` Compose profile. pgAdmin is the `tools` profile.
+- The local RDF4J image is replaced by [OpenGDB](https://github.com/FAU-CDI/open_gdb) (`git clone --recurse-submodules`). Drupal SPARQL talks to OpenGDB **authproxy** (`http://authproxy:8000/repositories/default`), not to RDF4J and not to OpenGDB nginx. Hitting RDF4J directly skips login and repository ACLs.
+- Only `web/sites` and `private-files` persist; the Drupal codebase is immutable in the image. Extra Composer packages must be recorded with `wisski-composer` (`web/sites/composer.local.json`); a plain `composer require` is gone after the next start.
+- Development and production are env presets (`env/development.env`, `env/production.env`). Varnish starts only with the `production` Compose profile. pgAdmin is the `tools` profile. Solr is the optional `solr` profile (off until a Search API core exists).
 - Nextcloud, Keycloak/OIDC, Traefik, and Adminer wiring are removed. Database UI is pgAdmin.
 
 ### Added
 - PHP-FPM + Nginx Drupal image sources, GitHub Actions GHCR publish (linux/amd64).
 - Compose Specification layout: `include` for OpenGDB, `COMPOSE_FILE` in `.env`, committed `docker-compose.override.yml`.
 - Site extras via persistent `composer.local.json` (re-applied onto each new image at boot), plus volumes for `web/modules/custom` and `web/themes/custom`.
+- First install creates the OpenGDB `default` repository (`POST /rest/repositories`) and waits until SPARQL returns HTTP 200. Optional `TS_TOKEN` (Django `/api-token-auth/`) for SPARQL instead of HTTP Basic.
+- pgAdmin server list filled from `DB_*` on every start.
 
-## 2.0.1
+### Changed
+- WissKI packages pin `3.7.0`.
+- Redis persistence is RDB only (set `vm.overcommit_memory=1` on the host).
+- `.env.example` leaves passwords and emails empty; copy a preset and set secrets before `docker compose up`.
+- First install enables German from shipped recipe translations and skips `drush locale-update` (run later if you need contrib translations).
+
+### Fixed
+- Drupal redirects keep the published host port.
+- SALZ adapter read/write URLs are synced on every boot so they stay on authproxy after image or URL changes.
+
+## [2.0.1] - 2026-03-12
 
 ### Added
 - Apple Silicon (M1/M2/M3) workaround: `docker-compose.apple-silicon.yml` to run amd64 images via Rosetta emulation when "no matching manifest for linux/arm64/v8" occurs.
@@ -48,7 +35,7 @@
 ### Changed
 - README: Added troubleshooting section for Apple Silicon and manifest errors.
 
-## 2.0.0
+## [2.0.0] - 2026-03-12
 
 ### Breaking Changes
 - **Environment variable renames** (update your `.env` when upgrading from 1.x):
@@ -75,11 +62,12 @@
 - `TS_TOKEN` for RDF4J token authentication.
 - `DRUPAL_LOCALE` in example-env.
 
-## 1.0.1
+## [1.0.1] - 2025-12-18
 
 ### Fixed
 - Corrected trusted host environment variable configuration.
-## 1.0.0
+
+## [1.0.0] - 2025-12-08
 ### Performance Tuned Branch (vs main)
 
 This changelog documents all changes between the `main` and `tuned` branches, focusing on performance optimizations and infrastructure improvements.
@@ -179,4 +167,10 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Database tuning** with 20+ MariaDB optimizations
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
+
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/2.0.1...HEAD
+[2.0.1]: https://github.com/rnsrk/dockerWissKI/compare/2.0.0...2.0.1
+[2.0.0]: https://github.com/rnsrk/dockerWissKI/compare/1.0.1...2.0.0
+[1.0.1]: https://github.com/rnsrk/dockerWissKI/compare/1.0.0...1.0.1
+[1.0.0]: https://github.com/rnsrk/dockerWissKI/releases/tag/1.0.0
 

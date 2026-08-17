@@ -36,7 +36,7 @@ First boot installs Drupal and WissKI recipes; that can take several minutes. Fo
 | Page cache | off | 5 minutes |
 | Drupal bypass | n/a | `127.0.0.1:8082` |
 
-pgAdmin is the Compose profile `tools` (enabled in both presets). Omit it by removing `tools` from `COMPOSE_PROFILES`. Solr is the profile `solr` (off by default until you create a Search API core); add `solr` to `COMPOSE_PROFILES` to start it.
+pgAdmin is the Compose profile `tools` (enabled in both presets). Omit it by removing `tools` from `COMPOSE_PROFILES`. Solr is the profile `solr` (off by default); add `solr` to `COMPOSE_PROFILES` when Search API needs it.
 
 Redis persistence is RDB only. Background saves need `vm.overcommit_memory=1` on the **host** (Docker cannot set this inside the container): `sudo sysctl -w vm.overcommit_memory=1`.
 
@@ -47,10 +47,11 @@ Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.
 | What | URL (defaults) |
 | --- | --- |
 | Site | http://localhost (`HTTP_PORT`) |
+| Drupal login | `DRUPAL_USER` / `DRUPAL_PASSWORD` |
 | OpenGDB / Django admin | http://localhost:8080 (`PUBLIC_PORT`) |
-| pgAdmin | http://localhost:8081 |
-| Solr (optional `solr` profile) | http://localhost:8983 |
-| Drupal direct (production preset only) | http://127.0.0.1:8082 |
+| pgAdmin | http://localhost:8081 (`PGADMIN_PORT`) |
+| Solr (optional `solr` profile) | http://localhost:8983 (`SOLR_PORT`) |
+| Drupal direct (production preset only) | http://127.0.0.1:8082 (`DRUPAL_DIRECT_PORT`) |
 
 OpenGDB login is `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`. On first install the Drupal entrypoint creates the `default` repository through OpenGDB (`POST /rest/repositories`) and fails if SPARQL does not return HTTP 200.
 
@@ -84,7 +85,7 @@ The same token is listed in Django admin under **Auth Token → Tokens**.
 3. **Fresh install.** Set `TS_TOKEN` in `.env` **before** the first `docker compose up`. The entrypoint then creates the WissKI SALZ adapter with token auth (`TS_USERNAME` / `TS_PASSWORD` can stay empty). Changing `TS_TOKEN` later does **not** rewrite an existing adapter.
 4. **Existing site.** Drupal → **Configuration → WissKI SALZ → Adapters** → Default (`/admin/config/wisski_salz/adapter/default/edit`) → enable token authentication, paste the token, save, then `docker compose exec drupal drush cr`.
 
-If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. OpenGDB’s public UI (port 8080) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
+If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. On every boot the entrypoint rewrites the Default SALZ adapter read/write URLs from `TS_READ_URL` / `TS_WRITE_URL`; it does not rewrite the stored token or password. OpenGDB’s public UI (port 8080) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
 
 ## Layout
 
@@ -93,19 +94,21 @@ docker-compose.yml                 # core services, include OpenGDB
 docker-compose.override.yml        # local build + operator ports
 docker-compose.development.yml     # HTTP → Drupal, Xdebug
 docker-compose.production.yml      # HTTP → Varnish
+docker-compose.apple-silicon.yml   # amd64 via Rosetta (append to COMPOSE_FILE)
 env/development.env
 env/production.env
+.env.example                       # same as development, passwords/emails empty
 drupal/                            # image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                           # git submodule (FAU-CDI/open_gdb)
 config/postgres/                   # Postgres init (pg_trgm)
 config/varnish/default.vcl         # Varnish (production profile)
 config/pgadmin/                    # pgAdmin servers.json (filled from DB_* on start)
-config/opengdb/                    # OpenGDB repository template, RDF4J entrypoint, nginx DNS TTL
+config/opengdb/                    # RDF4J entrypoint, nginx DNS TTL
 config/drupal/                     # example composer.local.json
 drupal/config/                     # PHP, Nginx, Redis baked into the image
 ```
 
-`.env` sets `COMPOSE_FILE` and `MODE`. With `COMPOSE_FILE` set, Compose loads exactly those files (no implicit extra merge).
+`.env` sets `COMPOSE_FILE` and `MODE`. With `COMPOSE_FILE` set, Compose loads exactly those files (no implicit extra merge). A local image build uses `WISSKI_PACKAGES_VERSION` / `WISSKI_PACKAGES_LINE` from `.env` (currently `3.7.0` / `3.x`).
 
 Build the Drupal image locally (also happens on `compose up` when the GHCR tag is missing):
 
