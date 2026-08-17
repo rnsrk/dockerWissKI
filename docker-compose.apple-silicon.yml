@@ -1,31 +1,25 @@
-# Apple Silicon (M1/M2/M3) workaround: run amd64 images via Rosetta emulation.
-# Use when you get "no matching manifest for linux/arm64/v8" errors.
-#
-# Usage: docker compose -f docker-compose.yml -f docker-compose.apple-silicon.yml up -d
-#
-# Note: This runs x86_64 images under emulation, which is slower than native arm64.
-# For native performance, ensure all images have multi-platform support.
+# Apple Silicon (M1/M2/M3): run amd64 images via Rosetta.
+# Append to COMPOSE_FILE, e.g.
+# COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml:docker-compose.development.yml:docker-compose.apple-silicon.yml
 
 services:
   drupal:
     platform: linux/amd64
-
-  mariadb:
+  postgres:
     platform: linux/amd64
-
-  solr:
-    platform: linux/amd64
-
-  adminer:
-    platform: linux/amd64
-
-  rdf4j:
-    platform: linux/amd64
-    build:
-      platform: linux/amd64
-
   redis:
     platform: linux/amd64
-
+  solr:
+    platform: linux/amd64
   varnish:
+    platform: linux/amd64
+  pgadmin:
+    platform: linux/amd64
+  rdf4j:
+    platform: linux/amd64
+  nginx:
+    platform: linux/amd64
+  authproxy:
+    platform: linux/amd64
+  outproxy:
     platform: linux/amd64

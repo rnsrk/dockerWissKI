@@ -1,0 +1,20 @@
+# Local overlay: build the Drupal image when it is not on GHCR yet,
+# and publish operator ports (Solr, OpenGDB, pgAdmin). Public HTTP is
+# in docker-compose.development.yml / docker-compose.production.yml.
+
+services:
+  drupal:
+    build:
+      context: ./drupal
+      args:
+        MODE: ${MODE:-production}
+        WISSKI_PACKAGES_VERSION: ${WISSKI_PACKAGES_VERSION:-3.6.0}
+        WISSKI_PACKAGES_LINE: ${WISSKI_PACKAGES_LINE:-3.x}
+
+  solr:
+    ports:
+      - ${SOLR_PORT:-8983}:8983
+
+  pgadmin:
+    ports:
+      - ${PGADMIN_PORT:-8081}:80

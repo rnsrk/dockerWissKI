@@ -1,5 +1,6 @@
 .env
-*.env
 volumes
 private_files
-docker-compose.override.yml
+.cursor
+.vscode
+.idea
