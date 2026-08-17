@@ -60,9 +60,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ${{ env.REGISTRY }}
-      - name: Determine packages line
+      - name: Determine packages pin
         id: packages
-        run: echo "line=3.x" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "line=3.x" >> "$GITHUB_OUTPUT"
+          echo "version=3.7.0" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT_DIRECTORY }}
@@ -70,7 +72,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MODE=${{ matrix.mode }}
-            ${{ matrix.mode == 'development' && format('WISSKI_PACKAGES_LINE={0}', steps.packages.outputs.line) || '' }}
+            WISSKI_PACKAGES_LINE=${{ steps.packages.outputs.line }}
+            WISSKI_PACKAGES_VERSION=${{ steps.packages.outputs.version }}
           platforms: ${{ env.PLATFORMS }}
           pull: true
           push: true

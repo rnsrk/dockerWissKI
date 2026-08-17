@@ -56,6 +56,6 @@ printf '  - %s\n' "${packages[@]}"
 composer require \
   --no-interaction \
   --no-progress \
-  --no-dev \
+  --update-no-dev \
   --update-with-dependencies \
   "${packages[@]}"

@@ -95,12 +95,14 @@ FROM drupal:${DRUPAL_BASE_IMAGE_TAG}
 
 ARG MODE=production
 # Production: semver manifest path (wisski_base/production/<version>) with lock file.
-ARG WISSKI_PACKAGES_VERSION=3.6.0
+ARG WISSKI_PACKAGES_VERSION=3.7.0
 # Development: major-line manifest path (wisski_base/development/<line>), no lock file.
 ARG WISSKI_PACKAGES_LINE=3.x
 
 # Runtime packages only (no autoconf, lib*-dev, or other build toolchain).
 # iipsrv, Redis, and the triplestore run in separate processes/containers.
+# Development images also get operator CLI helpers (rg, fd, jq, …) so
+# docker exec / agent searches work without "command not found".
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -132,6 +134,18 @@ RUN set -eux; \
     unzip \
     vim \
     wget; \
+    if [ "$MODE" = "development" ]; then \
+    apt-get install -y --no-install-recommends \
+    bash-completion \
+    fd-find \
+    file \
+    jq \
+    less \
+    procps \
+    ripgrep \
+    tree; \
+    ln -sfn /usr/bin/fdfind /usr/local/bin/fd; \
+    fi; \
     rm -rf /var/lib/apt/lists/*
 
 # Copy compiled PHP extensions and enablement snippets from the builder.
@@ -199,13 +213,6 @@ RUN mkdir -p /run/php && \
     echo 'listen.owner = www-data' >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
     echo 'listen.group = www-data' >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
     echo 'listen.mode = 0660' >> /usr/local/etc/php-fpm.d/zz-docker.conf
-
-# Production: raise max_children for concurrent WissKI entity views (default Drupal pool is 5).
-COPY config/php-fpm/zz-wisski-production.conf /usr/local/etc/php-fpm.d/zz-wisski-production.conf
-RUN set -eux; \
-    if [ "$MODE" != "production" ]; then \
-    rm -f /usr/local/etc/php-fpm.d/zz-wisski-production.conf; \
-    fi
 
 # Create configs and Composer home directories,
 # writable by the runtime user (single layer to avoid image bloat).
@@ -333,11 +340,16 @@ COPY config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.s
 COPY config/drupal/wisski-composer.sh /usr/local/bin/wisski-composer
 COPY config/drupal/lib/reverse-proxy.py /usr/local/lib/wisski/reverse-proxy.py
 COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-composer-local.php
+COPY config/php-fpm/zz-wisski-production.conf /usr/local/etc/php-fpm.d/zz-wisski-production.conf
 RUN chmod +x /usr/local/bin/set-permissions.sh \
     /usr/local/bin/sync-reverse-proxy.sh \
     /usr/local/bin/apply-composer-local.sh \
     /usr/local/bin/wisski-composer \
     /usr/local/lib/wisski/reverse-proxy.py
+RUN set -eux; \
+    if [ "$MODE" != "production" ]; then \
+    rm -f /usr/local/etc/php-fpm.d/zz-wisski-production.conf; \
+    fi
 
 # Add entrypoint.
 COPY entrypoint.sh /entrypoint.sh

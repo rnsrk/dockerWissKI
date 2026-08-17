@@ -8,7 +8,7 @@ services:
       context: ./drupal
       args:
         MODE: ${MODE:-production}
-        WISSKI_PACKAGES_VERSION: ${WISSKI_PACKAGES_VERSION:-3.6.0}
+        WISSKI_PACKAGES_VERSION: ${WISSKI_PACKAGES_VERSION:-3.7.0}
         WISSKI_PACKAGES_LINE: ${WISSKI_PACKAGES_LINE:-3.x}
 
   solr:
