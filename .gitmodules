@@ -1,0 +1,3 @@
+[submodule "opengdb"]
+	path = opengdb
+	url = https://github.com/FAU-CDI/open_gdb.git
