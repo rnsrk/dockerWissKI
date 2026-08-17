@@ -19,6 +19,7 @@
 
 ### Changed
 - WissKI packages pin `3.7.0`.
+- Drupal image is based on `php:8.3-fpm-bookworm`. Core and modules come from the packages manifest; the official `drupal` image is not used.
 - Redis persistence is RDB only (set `vm.overcommit_memory=1` on the host).
 - `.env.example` leaves passwords and emails empty; copy a preset and set secrets before `docker compose up`.
 - First install enables German from shipped recipe translations and skips `drush locale-update` (run later if you need contrib translations).
@@ -26,6 +27,8 @@
 ### Fixed
 - Drupal redirects keep the published host port.
 - SALZ adapter read/write URLs are synced on every boot so they stay on authproxy after image or URL changes.
+- PHP-FPM listens on `/run/php/php-fpm.sock` on `php:8.3-fpm` (nginx no longer 502s; Varnish can become healthy).
+- Xdebug can write `/var/log/xdebug/xdebug.log` as www-data (entrypoint Drush no longer leaves a root-owned file that PHP-FPM cannot open).
 
 ## [2.0.1] - 2026-03-12
 

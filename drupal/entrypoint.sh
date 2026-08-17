@@ -105,6 +105,22 @@ fi
 
 echo -e "\033[0;32mALL REQUIRED ENVIRONMENT VARIABLES ARE SET.\033[0m\n"
 
+# Xdebug is loaded for CLI Drush (root) and PHP-FPM (www-data). Create the log
+# as www-data before any PHP runs; otherwise root creates it 644 and FPM cannot
+# write ("File '/var/log/xdebug/xdebug.log' could not be opened").
+ensure_xdebug_log() {
+  if [ "${MODE}" != "development" ]; then
+    return 0
+  fi
+  mkdir -p /var/log/xdebug
+  touch /var/log/xdebug/xdebug.log
+  chown www-data:www-data /var/log/xdebug /var/log/xdebug/xdebug.log
+  chmod 775 /var/log/xdebug
+  chmod 664 /var/log/xdebug/xdebug.log
+}
+
+ensure_xdebug_log
+
 # Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
 sync_salz_adapter_urls() {
   if [ ! -f "${SETTINGS_FILE}" ]; then
@@ -572,6 +588,7 @@ start_php_fpm() {
     return
   fi
   echo -e "\033[0;33mStarting PHP-FPM...\033[0m"
+  mkdir -p /run/php
   php-fpm -D
   echo -e "\033[0;32mPHP-FPM started.\033[0m"
 }
@@ -623,6 +640,7 @@ trap shutdownServices TERM INT
 
 echo -e "\n"
 
+ensure_xdebug_log
 start_php_fpm
 start_memcached
 start_iipsrv

@@ -1,10 +1,12 @@
-# Pin the Drupal base image tag deliberately when upgrading core.
-ARG DRUPAL_BASE_IMAGE_TAG=11.3-php8.3-fpm-bookworm
+# PHP 8.3 FPM. Drupal core and modules are installed from the packages
+# manifest, so the official Drupal image is not used (and Drupal 11.4 has
+# no PHP 8.3 variant).
+ARG PHP_BASE_IMAGE_TAG=8.3-fpm-bookworm
 
 # -----------------------------------------------------------------------------
 # Builder: compile PHP extensions and iipsrv; toolchain stays in this stage.
 # -----------------------------------------------------------------------------
-FROM drupal:${DRUPAL_BASE_IMAGE_TAG} AS builder
+FROM php:${PHP_BASE_IMAGE_TAG} AS builder
 
 ARG MODE=production
 ARG IIPSRV_VERSION=iipsrv-1.3
@@ -22,6 +24,7 @@ RUN set -eux; \
     libdav1d6 \
     libfreetype6-dev \
     libgmp-dev \
+    libicu-dev \
     libjpeg-dev \
     libjpeg62-turbo \
     libmemcached-dev \
@@ -49,6 +52,13 @@ RUN docker-php-ext-configure gd \
     --with-webp \
     --with-avif \
     && docker-php-ext-install -j"$(nproc)" gd
+
+# Drupal-required extensions (the official Drupal image would have shipped these).
+RUN docker-php-ext-install -j"$(nproc)" \
+    mysqli \
+    pdo_mysql \
+    pdo_pgsql \
+    zip
 
 # Install intl.
 RUN set -eux; \
@@ -91,7 +101,10 @@ RUN set -eux; \
 # -----------------------------------------------------------------------------
 # Runtime: lean image with runtime libraries and compiled artifacts only.
 # -----------------------------------------------------------------------------
-FROM drupal:${DRUPAL_BASE_IMAGE_TAG}
+FROM php:${PHP_BASE_IMAGE_TAG}
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 ARG MODE=production
 # Production: semver manifest path (wisski_base/production/<version>) with lock file.
@@ -115,7 +128,9 @@ RUN set -eux; \
     libdav1d6 \
     libfreetype6 \
     libgmp10 \
+    libicu72 \
     libjpeg62-turbo \
+    libmariadb3 \
     libmemcached11 \
     libonig5 \
     libpng16-16 \
@@ -200,19 +215,19 @@ RUN set -eux; \
     touch /var/log/iipsrv.log; \
     chown www-data:www-data /var/log/iipsrv.log; \
     mkdir -p /var/log/xdebug; \
-    chown www-data:www-data /var/log/xdebug
+    touch /var/log/xdebug/xdebug.log; \
+    chown -R www-data:www-data /var/log/xdebug; \
+    chmod 775 /var/log/xdebug; \
+    chmod 664 /var/log/xdebug/xdebug.log
 
 # Isolated /tmp directory for temporary files.
 RUN mkdir -p /var/tmp/drupal \
     && chown www-data:www-data /var/tmp/drupal
 ENV TMPDIR=/var/tmp/drupal
 
-# Configure PHP-FPM to listen on a UNIX socket.
-RUN mkdir -p /run/php && \
-    sed -i 's|listen = 9000|listen = /run/php/php-fpm.sock|' /usr/local/etc/php-fpm.d/zz-docker.conf && \
-    echo 'listen.owner = www-data' >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
-    echo 'listen.group = www-data' >> /usr/local/etc/php-fpm.d/zz-docker.conf && \
-    echo 'listen.mode = 0660' >> /usr/local/etc/php-fpm.d/zz-docker.conf
+# Socket dir for PHP-FPM. The listen override is copied with the other pool
+# snippets so changing it does not bust the Composer layer.
+RUN mkdir -p /run/php
 
 # Create configs and Composer home directories,
 # writable by the runtime user (single layer to avoid image bloat).
@@ -340,6 +355,9 @@ COPY config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.s
 COPY config/drupal/wisski-composer.sh /usr/local/bin/wisski-composer
 COPY config/drupal/lib/reverse-proxy.py /usr/local/lib/wisski/reverse-proxy.py
 COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-composer-local.php
+# php:*-fpm sets listen = 9000 in docker.conf; this later [www] file overrides
+# it so nginx can use unix:/run/php/php-fpm.sock.
+COPY config/php-fpm/zz-wisski-listen.conf /usr/local/etc/php-fpm.d/zz-wisski-listen.conf
 COPY config/php-fpm/zz-wisski-production.conf /usr/local/etc/php-fpm.d/zz-wisski-production.conf
 RUN chmod +x /usr/local/bin/set-permissions.sh \
     /usr/local/bin/sync-reverse-proxy.sh \
