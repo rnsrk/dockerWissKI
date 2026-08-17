@@ -6,15 +6,12 @@ include:
 configs:
   varnish_vcl:
     file: ./config/varnish/default.vcl
-  pgadmin_servers:
-    file: ./config/pgadmin/servers.json
 
 services:
   drupal:
     image: ghcr.io/rnsrk/dockerwisski-${MODE:-production}:${WISSKI_IMAGE_VERSION:-latest}
     pull_policy: missing
     restart: unless-stopped
-    init: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -22,10 +19,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      solr:
+      rdf4j:
         condition: service_healthy
-      nginx:
-        condition: service_started
+      authproxy:
+        condition: service_healthy
     environment:
       DB_DRIVER: ${DB_DRIVER:-pgsql}
       DB_HOST: postgres
@@ -41,15 +38,16 @@ services:
       DRUPAL_SITE_NAME: ${DRUPAL_SITE_NAME:-My WissKI}
       DRUPAL_TRUSTED_HOSTS: ${DRUPAL_TRUSTED_HOSTS:-'^localhost$|^127\.0\.0\.1$'}
       DRUPAL_USER: ${DRUPAL_USER:-admin}
+      ENTRYPOINT_DEBUG: ${ENTRYPOINT_DEBUG:-}
       MODE: ${MODE:-production}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       TS_PASSWORD: ${TS_PASSWORD:-}
-      TS_READ_URL: http://nginx/repositories/${TS_REPOSITORY:-default}
+      TS_READ_URL: http://authproxy:8000/repositories/${TS_REPOSITORY:-default}
       TS_REPOSITORY: ${TS_REPOSITORY:-default}
       TS_TOKEN: ${TS_TOKEN:-}
       TS_USERNAME: ${TS_USERNAME:-}
-      TS_WRITE_URL: http://nginx/repositories/${TS_REPOSITORY:-default}/statements
+      TS_WRITE_URL: http://authproxy:8000/repositories/${TS_REPOSITORY:-default}/statements
       WISSKI_DEFAULT_DATA_MODEL_VERSION: ${WISSKI_DEFAULT_DATA_MODEL_VERSION:-true}
       WISSKI_DEFAULT_GRAPH: ${WISSKI_DEFAULT_GRAPH:-https://my.wiss-ki.eu/}
       WISSKI_STARTER_VERSION: ${WISSKI_STARTER_VERSION:-true}
@@ -84,7 +82,7 @@ services:
     command:
       - postgres
       - -c
-      - shared_buffers=1GB
+      - shared_buffers=256MB
       - -c
       - work_mem=16MB
       - -c
@@ -98,7 +96,9 @@ services:
       - -c
       - random_page_cost=1.1
       - -c
-      - effective_cache_size=2GB
+      - effective_cache_size=1536MB
+      - -c
+      - log_min_messages=warning
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/postgres/init-pg_trgm.sql:/docker-entrypoint-initdb.d/01-pg_trgm.sql:ro
@@ -120,7 +120,7 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly yes
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly no
     volumes:
       - redis-data:/data
     healthcheck:
@@ -139,6 +139,7 @@ services:
 
   solr:
     image: solr:9.7
+    profiles: [solr]
     restart: unless-stopped
     environment:
       SOLR_JAVA_MEM: "-Xms512M -Xmx1G"
@@ -198,6 +199,57 @@ services:
           cpus: "0.25"
           memory: 256M
 
+  # Overlay OpenGDB rdf4j: fix volume UID, cap heap, wait until the protocol is up.
+  rdf4j:
+    user: "0:0"
+    environment:
+      JAVA_OPTS: -Xms256m -Xmx1g -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
+    volumes:
+      - ./config/opengdb/rdf4j-entrypoint.sh:/rdf4j-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/rdf4j-entrypoint.sh"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /rdf4j-server/protocol HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3 && grep -qE \"^HTTP/1\\.[01] 200\" <&3'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # Overlay OpenGDB nginx: short Docker DNS TTL, wait for uWSGI.
+  nginx:
+    volumes:
+      - ./config/opengdb/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+    depends_on:
+      rdf4j:
+        condition: service_healthy
+      authproxy:
+        condition: service_healthy
+      outproxy:
+        condition: service_started
+
+  authproxy:
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null --timeout=3 http://127.0.0.1:8000/admin/login/",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+
   pgadmin:
     image: dpage/pgadmin4:8
     profiles: [tools]
@@ -209,12 +261,16 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
       PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
-    configs:
-      - source: pgadmin_servers
-        target: /pgadmin4/servers.json
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-wisski}
+      DB_USER: ${DB_USER:-wisski}
+      DB_PASSWORD: ${DB_PASSWORD:-wisski}
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+      - ./config/pgadmin/servers.json:/config/servers.json:ro
+      - ./config/pgadmin/entrypoint.sh:/config/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/config/entrypoint.sh"]
 
 volumes:
   drupal-sites:

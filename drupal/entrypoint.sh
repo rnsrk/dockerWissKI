@@ -5,7 +5,10 @@ set -e
 # Enable debug mode if MODE environment variable is set to development.
 if [ "${MODE}" = "development" ]; then
   echo -e "\033[0;32mDEVELOPMENT MODE ENABLED.\033[0m"
-  set -ex
+fi
+# Trace every command only when explicitly requested (floods compose logs).
+if [ "${ENTRYPOINT_DEBUG:-}" = "1" ] || [ "${ENTRYPOINT_DEBUG:-}" = "true" ]; then
+  set -x
 fi
 
 # Set Environment variables.
@@ -102,6 +105,37 @@ fi
 
 echo -e "\033[0;32mALL REQUIRED ENVIRONMENT VARIABLES ARE SET.\033[0m\n"
 
+# Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
+sync_salz_adapter_urls() {
+  if [ ! -f "${SETTINGS_FILE}" ]; then
+    return 0
+  fi
+  echo -e "\033[0;33mSYNCING SALZ ADAPTER ENDPOINTS (${TS_READ_URL})...\033[0m"
+  if drush php-eval '
+    $read = getenv("TS_READ_URL");
+    $write = getenv("TS_WRITE_URL");
+    if ($read === false || $read === "" || $write === false || $write === "") {
+      return;
+    }
+    $adapter = \Drupal::entityTypeManager()->getStorage("wisski_salz_adapter")->load("default");
+    if (!$adapter) {
+      return;
+    }
+    $config = $adapter->getEngine()->getConfiguration();
+    if (($config["read_url"] ?? "") === $read && ($config["write_url"] ?? "") === $write) {
+      return;
+    }
+    $config["read_url"] = $read;
+    $config["write_url"] = $write;
+    $adapter->setEngineConfig($config);
+    $adapter->save();
+  '; then
+    echo -e "\033[0;32mSALZ ADAPTER ENDPOINTS SYNCED.\033[0m\n"
+  else
+    echo -e "\033[0;33mSALZ ADAPTER ENDPOINT SYNC SKIPPED.\033[0m\n"
+  fi
+}
+
 if [ "${MODE}" = "development" ]; then
   echo -e "\033[0;33mENVIRONMENT VARIABLES:\033[0m"
   env | sort
@@ -187,7 +221,7 @@ else
   if timeout 300 drush si \
     --db-url="${DB_DRIVER}://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}" \
     --site-name="${DRUPAL_SITE_NAME}" \
-    --account-name="admin" \
+    --account-name="${DRUPAL_USER}" \
     --account-pass="${DRUPAL_PASSWORD}" \
     --locale="${DRUPAL_LOCALE}" \
     --yes 2>&1; then
@@ -287,35 +321,15 @@ EOF
   echo -e "\033[0;32mWISSKI USER GROUP CREATED.\033[0m\n"
 
   # Apply WissKI Starter recipe (recipe package is shipped in the image).
+  drush cr
   if [ -n "${WISSKI_STARTER_VERSION}" ]; then
     echo -e "\033[0;33mAPPLY WISSKI STARTER RECIPE.\033[0m"
-      drush cr
       drush recipe ../recipes/wisski_starter
-      drush cr
     echo -e "\033[0;32mWISSKI STARTER RECIPE APPLIED.\033[0m\n"
   else
     echo -e "\033[0;33mWISSKI STARTER RECIPE SKIPPED\033[0m\n"
   fi
   if [ -n "${WISSKI_DEFAULT_DATA_MODEL_VERSION}" ]; then
-    echo -e "\033[0;33mWAITING FOR TRIPLESTORE...\033[0m"
-    TS_BASE="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
-    TS_ATTEMPT=0
-    TS_READY=false
-    while [ $TS_ATTEMPT -lt 30 ] && [ "$TS_READY" = false ]; do
-      if curl -fsS -o /dev/null "${TS_BASE}/" 2>/dev/null; then
-        TS_READY=true
-      else
-        echo -e "\033[0;33mWaiting for triplestore... (attempt $((TS_ATTEMPT + 1))/30)\033[0m"
-        sleep 2
-        TS_ATTEMPT=$((TS_ATTEMPT + 1))
-      fi
-    done
-    if [ "$TS_READY" = false ]; then
-      echo -e "\033[0;31mERROR: Triplestore at ${TS_BASE} did not become ready.\033[0m"
-      exit 1
-    fi
-    echo -e "\033[0;32mTRIPLESTORE IS REACHABLE.\033[0m\n"
-
     echo -e "\033[0;33mENSURING DEFAULT TRIPLESTORE REPOSITORY...\033[0m"
     TS_CURL_AUTH=()
     if [ -n "${TS_TOKEN}" ]; then
@@ -323,11 +337,57 @@ EOF
     elif [ -n "${TS_USERNAME}" ] && [ -n "${TS_PASSWORD}" ]; then
       TS_CURL_AUTH=(-u "${TS_USERNAME}:${TS_PASSWORD}")
     fi
-    curl -sS -X PUT "${TS_READ_URL}" "${TS_CURL_AUTH[@]}" \
-      -H 'Content-Type: text/turtle' \
-      --data-binary @/var/configs/default_repository.ttl \
-      -o /dev/null -w "%{http_code}\n" || true
-    echo -e "\033[0;32mDEFAULT REPOSITORY ENSURED.\033[0m\n"
+    TS_BASE="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
+    TS_REST_URL="${TS_BASE}/rest/repositories"
+    TS_PUT_BODY="$(mktemp)"
+
+    TS_ATTEMPT=0
+    TS_READY=false
+    while [ $TS_ATTEMPT -lt 30 ] && [ "$TS_READY" = false ]; do
+      # OpenGDB tracks repositories in Django; POST /rest/repositories creates that
+      # row and then PUTs the RDF4J store. A raw PUT to /repositories/{id} leaves
+      # SPARQL 404 even when RDF4J already has the store.
+      code="$(curl -sS -o "${TS_PUT_BODY}" -w '%{http_code}' -X POST "${TS_REST_URL}" "${TS_CURL_AUTH[@]}" \
+        -H 'Content-Type: application/json' \
+        --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
+      case "${code}" in
+        200|201|204|400)
+          TS_READY=true
+          ;;
+        *)
+          echo -e "\033[0;33mWaiting for triplestore repository (HTTP ${code:-000})... (attempt $((TS_ATTEMPT + 1))/30)\033[0m"
+          sleep 2
+          TS_ATTEMPT=$((TS_ATTEMPT + 1))
+          ;;
+      esac
+    done
+    if [ "$TS_READY" = false ]; then
+      echo -e "\033[0;31mERROR: Could not create or confirm triplestore repository ${TS_REST_URL}.\033[0m"
+      cat "${TS_PUT_BODY}" 2>/dev/null || true
+      rm -f "${TS_PUT_BODY}"
+      exit 1
+    fi
+    rm -f "${TS_PUT_BODY}"
+
+    TS_ATTEMPT=0
+    TS_QUERY_READY=false
+    while [ $TS_ATTEMPT -lt 15 ] && [ "$TS_QUERY_READY" = false ]; do
+      code="$(curl -sS -o /dev/null -w '%{http_code}' "${TS_CURL_AUTH[@]}" \
+        --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
+      if [ "${code}" = "200" ]; then
+        TS_QUERY_READY=true
+      else
+        echo -e "\033[0;33mWaiting for SPARQL endpoint (HTTP ${code:-000})... (attempt $((TS_ATTEMPT + 1))/15)\033[0m"
+        sleep 2
+        TS_ATTEMPT=$((TS_ATTEMPT + 1))
+      fi
+    done
+    if [ "$TS_QUERY_READY" = false ]; then
+      echo -e "\033[0;31mERROR: SPARQL endpoint at ${TS_READ_URL} did not return HTTP 200.\033[0m"
+      echo -e "\033[0;31mIf RDF4J already has a leftover '${TS_REPOSITORY}' store, remove the rdf4j-data volume and recreate the stack.\033[0m"
+      exit 1
+    fi
+    echo -e "\033[0;32mDEFAULT REPOSITORY READY.\033[0m\n"
 
     echo -e "\033[0;33mINSTALL DEFAULT TRIPLESTORE ADAPTER.\033[0m"
       # Use token authentication when TS_TOKEN is set; otherwise username and password.
@@ -347,17 +407,15 @@ EOF
 
     # Apply WissKI Default Data Model recipe (recipe package is shipped in the image).
     echo -e "\033[0;33mAPPLY WISSKI DATA DEFAULT MODEL RECIPE.\033[0m"
-      drush cr
       drush recipe ../recipes/wisski_default_data_model
-      echo -e "\033[0;33mCLEAR CACHE.\033[0m\n"
-      # Clear cache.
-      drush cr
-      echo -e "\033[0;32mCACHE CLEARED.\033[0m\n"
+      echo -e "\033[0;32mWISSKI DATA DEFAULT MODEL RECIPE APPLIED.\033[0m\n"
 
-      echo -e "\033[0;32mAdd German language and update translations.\033[0m\n"
+      echo -e "\033[0;33mAdd German language and import shipped translations.\033[0m\n"
 
-      # Add German language and update translations.
-      drush language-add de && drush locale-check && drush locale-update
+      # Enable German from recipe config and WissKI .po files. Skip locale-check /
+      # locale-update: they download every contrib translation into the DB (~minutes
+      # and gigabytes of WAL). Run `drush locale-update` later if you need them.
+      drush language-add de
       drush php-eval "
         \$source = new \Drupal\Core\Config\FileStorage('/opt/drupal/recipes/wisski_default_data_model/config/language/de');
         \$langStorage = \Drupal::service('config.storage')->createCollection('language.de');
@@ -423,11 +481,6 @@ EOF
       drush config-set wisski_iip_image.wisski_iiif_settings iiif_server "https://${DRUPAL_DOMAIN}/fcgi-bin/iipsrv.fcgi?IIIF="
       echo -e "\033[0;32mIIIF configs set.\033[0m\n"
 
-      echo -e "\033[0;33mCLEAR CACHE.\033[0m\n"
-      # Clear cache.
-      drush cr
-      echo -e "\033[0;32mCACHE CLEARED.\033[0m\n"
-
       echo -e "\033[0;32mGRANTING WISSKI USER PERMISSIONS.\033[0m\n"
       # Grant WissKI user permissions.
         drush role:perm:add 'wisski_user' 'access toolbar' -y
@@ -446,6 +499,10 @@ EOF
         drush role:perm:add 'wisski_user' 'access wisski manifests' -y
         drush role:perm:add 'wisski_user' 'wisski_adapter_sparql11_pb.query' -y
       echo -e "\033[0;32mWISSKI USER PERMISSIONS GRANTED.\033[0m\n"
+
+      echo -e "\033[0;33mCLEAR CACHE.\033[0m\n"
+      drush cr
+      echo -e "\033[0;32mCACHE CLEARED.\033[0m\n"
 
     echo -e "\033[0;32mWISSKI DEFAULT DATA MODEL RECIPE APPLIED.\033[0m\n"
 
@@ -497,6 +554,8 @@ EOF
   echo -e "\033[0;32m|FINISHED INSTALLING DRUPAL.|\033[0m"
   echo -e "\033[0;32m+---------------------------+\033[0m"
 fi
+
+sync_salz_adapter_urls
 
 echo -e "\033[0;33mAPPLYING SITE COMPOSER PACKAGES...\033[0m"
 if su -s /bin/bash www-data -c 'export COMPOSER_HOME=/var/composer-home; /usr/local/bin/apply-composer-local.sh'; then
