@@ -21,7 +21,7 @@
 - WissKI packages pin `3.7.0`.
 - Drupal image is based on `php:8.3-fpm-bookworm`. Core and modules come from the packages manifest; the official `drupal` image is not used.
 - Redis persistence is RDB only (set `vm.overcommit_memory=1` on the host).
-- `.env.example` leaves passwords and emails empty; copy a preset and set secrets before `docker compose up`.
+- Copy `env/development.env` or `env/production.env` to `.env`. Passwords, emails, and `DJANGO_SECRET_KEY` are empty in the presets; set them before `docker compose up`. `.env.example` is removed (it duplicated the development preset).
 - First install enables German from shipped recipe translations and skips `drush locale-update` (run later if you need contrib translations).
 
 ### Fixed

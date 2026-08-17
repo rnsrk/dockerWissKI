@@ -1,4 +1,5 @@
 .env
+.env*
 volumes
 private_files
 .cursor
