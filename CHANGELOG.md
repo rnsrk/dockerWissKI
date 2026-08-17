@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/2.0.1...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.0.0...HEAD)
+
+## [3.0.0](https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0) - 2026-08-17
 
 ### Breaking Changes
 - Drupal image is built in this repository (`drupal/`) and published to `ghcr.io/rnsrk/dockerwisski-{production,development}`. The SODA `wisski-base-image` pull is gone.
@@ -172,7 +174,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/2.0.1...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.0.0...HEAD
+[3.0.0]: https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0
 [2.0.1]: https://github.com/rnsrk/dockerWissKI/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/rnsrk/dockerWissKI/compare/1.0.1...2.0.0
 [1.0.1]: https://github.com/rnsrk/dockerWissKI/compare/1.0.0...1.0.1
