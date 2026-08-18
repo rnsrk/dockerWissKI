@@ -40,7 +40,7 @@ pgAdmin is the Compose profile `tools` (enabled in both presets). Omit it by rem
 
 Redis persistence is RDB only. Background saves need `vm.overcommit_memory=1` on the **host** (Docker cannot set this inside the container): `sudo sysctl -w vm.overcommit_memory=1`.
 
-Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`.
+Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
 ## Access
 
@@ -90,30 +90,42 @@ If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps
 ## Layout
 
 ```
-docker-compose.yml                 # core services, include OpenGDB
-docker-compose.override.yml        # local build + operator ports
-docker-compose.development.yml     # HTTP → Drupal, Xdebug
-docker-compose.production.yml      # HTTP → Varnish
-docker-compose.apple-silicon.yml   # amd64 via Rosetta (append to COMPOSE_FILE)
-env/development.env                # copy to .env for development
-env/production.env                 # copy to .env for production
-drupal/                            # PHP 8.3 FPM image (Dockerfile, entrypoint, PHP/Nginx)
-opengdb/                           # git submodule (FAU-CDI/open_gdb)
-config/postgres/                   # Postgres init (pg_trgm)
-config/varnish/default.vcl         # Varnish (production profile)
-config/pgadmin/                    # pgAdmin servers.json (filled from DB_* on start)
-config/opengdb/                    # RDF4J entrypoint, nginx DNS TTL
-config/drupal/                     # example composer.local.json
-drupal/config/                     # PHP, Nginx, Redis baked into the image
+docker-compose.yml                      # default stack, include OpenGDB
+docker-compose.development.yml          # HTTP → Drupal, Xdebug
+docker-compose.production.yml           # HTTP → Varnish
+docker-compose.local-build.yml          # optional: build Drupal locally (append)
+docker-compose.apple-silicon.yml        # optional: amd64 via Rosetta (append)
+docker-compose.override.yml.example     # template for machine-local overlay
+env/development.env                     # copy to .env for development
+env/production.env                      # copy to .env for production
+drupal/                                 # PHP 8.3 FPM image (Dockerfile, entrypoint, PHP/Nginx)
+opengdb/                                # git submodule (FAU-CDI/open_gdb)
+config/postgres/                        # Postgres init (pg_trgm)
+config/varnish/default.vcl              # Varnish (production profile)
+config/pgadmin/                         # pgAdmin servers.json (filled from DB_* on start)
+config/opengdb/                         # RDF4J entrypoint, nginx DNS TTL
+config/drupal/                          # example composer.local.json
+drupal/config/                          # PHP, Nginx, Redis baked into the image
 ```
 
-`.env` sets `COMPOSE_FILE` and `MODE`. With `COMPOSE_FILE` set, Compose loads exactly those files (no implicit extra merge). A local image build uses `WISSKI_PACKAGES_VERSION` / `WISSKI_PACKAGES_LINE` from `.env` (currently `3.7.0` / `3.x`).
+`.env` sets `COMPOSE_FILE` and `MODE`. With `COMPOSE_FILE` set, Compose loads **exactly** those files (no implicit `docker-compose.override.yml` merge). The presets are:
 
-Build the Drupal image locally (also happens on `compose up` when the GHCR tag is missing):
+| Preset | `COMPOSE_FILE` |
+| --- | --- |
+| Development | `docker-compose.yml:docker-compose.development.yml` |
+| Production | `docker-compose.yml:docker-compose.production.yml` |
+
+Optional files are **not** in the presets. Append them in `.env` when needed, last file wins:
 
 ```bash
-docker compose build drupal
+# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, currently 3.7.0 / 3.x)
+COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.local-build.yml
+
+# Then: docker compose build drupal
+# or:   docker compose up -d --build
 ```
+
+`docker-compose.override.yml` is gitignored. Copy the example and append it last for bind-mounts, extra ports, or other machine-only changes.
 
 ## Updating OpenGDB
 

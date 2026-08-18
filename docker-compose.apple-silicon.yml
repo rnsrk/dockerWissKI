@@ -1,6 +1,6 @@
 # Apple Silicon (M1/M2/M3): run amd64 images via Rosetta.
 # Append to COMPOSE_FILE, e.g.
-# COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml:docker-compose.development.yml:docker-compose.apple-silicon.yml
+# COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.apple-silicon.yml
 
 services:
   drupal:

@@ -1,0 +1,15 @@
+# Machine-local Compose overlay. Copy to docker-compose.override.yml (gitignored)
+# and append :docker-compose.override.yml to COMPOSE_FILE in .env.
+#
+# Last file in COMPOSE_FILE wins. Keep this document valid Compose YAML
+# (a comment-only file is rejected as empty).
+
+services: {}
+
+# services:
+#   drupal:
+#     volumes:
+#       - ./path/to/module:/opt/drupal/web/modules/custom/my-module
+#   postgres:
+#     ports:
+#       - "127.0.0.1:5432:5432"

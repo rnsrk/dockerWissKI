@@ -1,7 +1,15 @@
+# Environment and secrets
 .env
-.env*
-volumes
-private_files
-.cursor
-.vscode
-.idea
+.env.*
+
+# Local Compose override (see docker-compose.override.yml.example)
+docker-compose.override.yml
+
+# Runtime data
+volumes/
+private_files/
+
+# Editors
+.cursor/
+.vscode/
+.idea/

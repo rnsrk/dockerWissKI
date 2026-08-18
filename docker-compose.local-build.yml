@@ -1,0 +1,16 @@
+# Optional: build the Drupal image locally instead of pulling GHCR.
+# Append to COMPOSE_FILE, e.g.
+# COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.local-build.yml
+
+services:
+  drupal:
+    build:
+      context: ./drupal
+      args:
+        MODE: ${MODE:-production}
+        WISSKI_PACKAGES_VERSION: ${WISSKI_PACKAGES_VERSION:-3.7.0}
+        WISSKI_PACKAGES_LINE: ${WISSKI_PACKAGES_LINE:-3.x}
+    develop:
+      watch:
+        - action: rebuild
+          path: ./drupal

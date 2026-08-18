@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.0.0...HEAD)
 
+### Changed
+- Compose layout: `docker-compose.yml` is the default stack; `docker-compose.development.yml` / `docker-compose.production.yml` alone select the environment. Local Drupal builds are the optional overlay `docker-compose.local-build.yml`. `docker-compose.override.yml` is gitignored (see `docker-compose.override.yml.example`). Existing `.env` files must drop `docker-compose.override.yml` from `COMPOSE_FILE` unless they keep a local copy.
+
 ## [3.0.0](https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0) - 2026-08-17
 
 ### Breaking Changes
