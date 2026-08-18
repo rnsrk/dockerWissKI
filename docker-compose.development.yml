@@ -9,6 +9,10 @@ services:
     environment:
       DEV_UID: ${DEV_UID:-1000}
       DEV_GID: ${DEV_GID:-1000}
+    volumes:
+      # OPcache on with mtime checks so bind-mounted WissKI still live-reloads.
+      # Overrides the published image's opcache.enable=0 without a rebuild.
+      - ./drupal/config/opcache/zz-opcache-recommended-dev.ini:/usr/local/etc/php/conf.d/zzz-opcache-runtime.ini:ro
     labels:
       # Attach Cursor/VS Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'

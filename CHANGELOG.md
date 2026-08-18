@@ -3,6 +3,7 @@
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD)
 
 ### Changed
+- Development OPcache is on with timestamp revalidation (bind-mounted WissKI still live-reloads). `docker-compose.development.yml` mounts that ini so a published image picks it up without a rebuild.
 - SPARQL and Postgres process budget via `.env`: `RDF4J_CPUS`, `RDF4J_MEMORY`, `RDF4J_HEAP_MIN` / `RDF4J_HEAP_MAX`, `POSTGRES_CPUS`, `POSTGRES_MEMORY`, `POSTGRES_SHARED_BUFFERS`. Development RDF4J is 6 CPU / 3G / 2G heap (was 2 CPU / 1.5G / 1G heap).
 
 ## [3.3.0](https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0) - 2026-08-18
