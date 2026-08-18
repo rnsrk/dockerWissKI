@@ -9,6 +9,10 @@
 ### Changed
 - Override example persists Cursor/VS Code server volumes under `/home/developer/` instead of `/root/`. Attach as `developer` (compose label `remoteUser`).
 
+### Fixed
+- PHP-FPM keeps `/var/tmp/drupal` via `sys_temp_dir` / pool `env[TMPDIR]` (`775` `www-data`). The image no longer exports `ENV TMPDIR`, which broke Cursor git askpass (`vscode-git-*.sock`).
+- Development git uses SSH (`git@git.drupal.org`). HTTPS `git.drupalcode.org` URLs are rewritten to SSH; do not add HTTPS remotes.
+
 ## [3.2.0](https://github.com/rnsrk/dockerWissKI/compare/3.1.0...3.2.0) - 2026-08-18
 
 ### Changed

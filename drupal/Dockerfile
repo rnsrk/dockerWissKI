@@ -236,10 +236,13 @@ RUN set -eux; \
     chmod 775 /var/log/xdebug; \
     chmod 664 /var/log/xdebug/xdebug.log
 
-# Isolated /tmp directory for temporary files.
+# Isolated tmp for PHP-FPM only (sys_temp_dir / pool env[TMPDIR]).
+# Do not set image ENV TMPDIR: Cursor's git askpass IPC socket uses
+# os.tmpdir(), and a global TMPDIR makes git push look for a missing
+# vscode-git-*.sock under /var/tmp/drupal.
 RUN mkdir -p /var/tmp/drupal \
-    && chown www-data:www-data /var/tmp/drupal
-ENV TMPDIR=/var/tmp/drupal
+    && chown www-data:www-data /var/tmp/drupal \
+    && chmod 775 /var/tmp/drupal
 
 # Socket dir for PHP-FPM. The listen override is copied with the other pool
 # snippets so changing it does not bust the Composer layer.
@@ -380,6 +383,8 @@ RUN set -eux; \
       '  Hostname git.drupal.org' \
       '  User git' \
       > /etc/ssh/ssh_config.d/drupal.conf; \
+    git config --system --add url."git@git.drupal.org:".insteadOf "https://git.drupalcode.org/"; \
+    git config --system --add url."git@git.drupal.org:".insteadOf "git@git.drupalcode.org:"; \
     fi
 
 # Persistent private files live outside the web root (mounted as a volume).
