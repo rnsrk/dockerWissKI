@@ -153,7 +153,7 @@ docker-compose.apple-silicon.yml        # optional: amd64 via Rosetta (append)
 docker-compose.override.yml.example     # template for machine-local overlay
 env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
-drupal/                                 # PHP 8.3 FPM image (Dockerfile, entrypoint, PHP/Nginx)
+drupal/                                 # PHP 8.4 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
 config/postgres/                        # Postgres init (pg_trgm)
 config/varnish/default.vcl              # Varnish (production profile)

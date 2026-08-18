@@ -1,7 +1,6 @@
-# PHP 8.3 FPM. Drupal core and modules are installed from the packages
-# manifest, so the official Drupal image is not used (and Drupal 11.4 has
-# no PHP 8.3 variant).
-ARG PHP_BASE_IMAGE_TAG=8.3-fpm-bookworm
+# PHP 8.4 FPM. Drupal core and modules are installed from the packages
+# manifest, so the official Drupal image is not used.
+ARG PHP_BASE_IMAGE_TAG=8.4-fpm-bookworm
 
 # -----------------------------------------------------------------------------
 # Builder: compile PHP extensions and iipsrv; toolchain stays in this stage.

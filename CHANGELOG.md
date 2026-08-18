@@ -3,6 +3,7 @@
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD)
 
 ### Changed
+- Drupal image is based on `php:8.4-fpm-bookworm` (was 8.3).
 - Development OPcache is on with timestamp revalidation (bind-mounted WissKI still live-reloads). `docker-compose.development.yml` mounts that ini so a published image picks it up without a rebuild.
 - SPARQL and Postgres process budget via `.env`: `RDF4J_CPUS`, `RDF4J_MEMORY`, `RDF4J_HEAP_MIN` / `RDF4J_HEAP_MAX`, `POSTGRES_CPUS`, `POSTGRES_MEMORY`, `POSTGRES_SHARED_BUFFERS`. Development RDF4J is 6 CPU / 3G / 2G heap (was 2 CPU / 1.5G / 1G heap).
 
