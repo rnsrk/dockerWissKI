@@ -16,8 +16,10 @@ fi
 # Set Composer home directory.
 export COMPOSER_HOME=/var/composer-home
 
-# Define the path to the settings.php file.
-SETTINGS_FILE="/var/www/html/sites/default/settings.php"
+# Canonical path (do not use /var/www/html/sites/...). The php/nginx images
+# ship /var/www/html as a directory; a failed symlink would make this miss
+# the sites volume and skip SALZ / reverse-proxy sync on every boot.
+SETTINGS_FILE="/opt/drupal/web/sites/default/settings.php"
 export SETTINGS_FILE
 
 # Marker files used to gate the install logic across container restarts.
@@ -154,9 +156,15 @@ sync_salz_adapter_urls() {
 
 if [ "${MODE}" = "development" ]; then
   echo -e "\033[0;33mENVIRONMENT VARIABLES:\033[0m"
-  env | sort
+  env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG' || true
   echo
 fi
+
+# Entrypoint Drush must not pay Xdebug overhead. php-fpm is started later and
+# does not inherit this function, so IDE debugging on port 9003 still works.
+drush() {
+  XDEBUG_MODE=off command drush "$@"
+}
 
 # Ensure the volume mounts are writable by the runtime user.
 chown www-data:www-data /opt/drupal/web/sites /opt/drupal/private-files 2>/dev/null || true
@@ -165,8 +173,10 @@ chown www-data:www-data "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/cu
 
 # Composer cache must stay writable by www-data (docker exec package checks).
 mkdir -p "${COMPOSER_HOME}/cache"
-chown -R www-data:www-data "${COMPOSER_HOME}"
-chmod -R 775 "${COMPOSER_HOME}"
+if [ "$(stat -c '%U' "${COMPOSER_HOME}" 2>/dev/null || true)" != "www-data" ]; then
+  chown -R www-data:www-data "${COMPOSER_HOME}"
+  chmod -R 775 "${COMPOSER_HOME}"
+fi
 
 # Check if Drupal is already installed.
 echo -e "\033[0;33mCHECKING IF DRUPAL IS ALREADY INSTALLED.\033[0m"

@@ -143,6 +143,7 @@ RUN set -eux; \
     memcached \
     netcat-openbsd \
     nginx \
+    python3 \
     rsync \
     sendmail \
     tini \
@@ -278,7 +279,11 @@ RUN set -eux; \
     fi; \
     composer clear-cache; \
     ln -sf /opt/drupal/vendor/bin/drush /usr/local/bin/drush; \
-    ln -sfn /opt/drupal/web /var/www/html; \
+    # php + nginx both ship /var/www/html as a directory. ln -sfn TARGET DIR
+    # then creates DIR/web instead of replacing DIR, so SETTINGS_FILE and
+    # WORKDIR miss the Drupal root (SALZ/reverse-proxy sync become no-ops).
+    rm -rf /var/www/html; \
+    ln -s /opt/drupal/web /var/www/html; \
     echo "${packagesVersion}" > /opt/drupal/.wisski-packages-version; \
     cp composer.json .wisski-composer.json; \
     if [ -f composer.lock ]; then cp composer.lock .wisski-composer.lock; fi; \

@@ -7,6 +7,13 @@
 
 ### Changed
 - Compose layout: `docker-compose.yml` is the default stack; `docker-compose.development.yml` / `docker-compose.production.yml` alone select the environment. Local Drupal builds are the optional overlay `docker-compose.local-build.yml`. `docker-compose.override.yml` is gitignored (see `docker-compose.override.yml.example`). Existing `.env` files must drop `docker-compose.override.yml` from `COMPOSE_FILE` unless they keep a local copy.
+- Restarting the same Drupal container skips a repeat `composer require` of `composer.local.json`. Recreate still re-applies extras onto the image.
+
+### Fixed
+- `/var/www/html` is now a real symlink to `/opt/drupal/web`. `apt install nginx` left that path as a directory, so `ln -sfn` created `/var/www/html/web` and the entrypoint looked for `settings.php` in the empty php/nginx html dir. SALZ adapter URL sync and reverse-proxy settings were skipped on every boot after the first install.
+- Development entrypoint no longer prints passwords, tokens, or keys to Compose logs.
+- Entrypoint Drush runs with `XDEBUG_MODE=off` so first boot and SALZ sync are not slowed by the debugger (PHP-FPM still loads Xdebug).
+- Redis settings use `$app_root` module paths and no longer probe Redis with a 2s timeout on every Drupal bootstrap.
 
 ## [3.0.0](https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0) - 2026-08-17
 

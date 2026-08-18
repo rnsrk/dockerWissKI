@@ -18,6 +18,23 @@ if [ ! -f "${BAKED_JSON}" ]; then
   exit 0
 fi
 
+# Stamp lives in the container layer (next to vendor), not on the sites volume.
+# Recreating the container drops it so extras are applied onto a fresh image.
+# Restarting the same container skips a ~8s composer require.
+STAMP_FILE="${ROOT}/.wisski-composer-local.stamp"
+image_ver="$(cat "${ROOT}/.wisski-packages-version" 2>/dev/null || echo unknown)"
+baked_hash="$(md5sum "${BAKED_JSON}" | awk '{print $1}')"
+if [ -f "${LOCAL_JSON}" ]; then
+  local_hash="$(md5sum "${LOCAL_JSON}" | awk '{print $1}')"
+else
+  local_hash="none"
+fi
+wanted="${image_ver}:${baked_hash}:${local_hash}"
+if [ -f "${STAMP_FILE}" ] && [ "$(cat "${STAMP_FILE}")" = "${wanted}" ]; then
+  echo "Site Composer packages already applied; skipping."
+  exit 0
+fi
+
 cp "${BAKED_JSON}" "${ROOT}/composer.json"
 if [ -f "${BAKED_LOCK}" ]; then
   cp "${BAKED_LOCK}" "${ROOT}/composer.lock"
@@ -25,8 +42,13 @@ else
   rm -f "${ROOT}/composer.lock"
 fi
 
+write_stamp() {
+  printf '%s\n' "${wanted}" > "${STAMP_FILE}"
+}
+
 if [ ! -f "${LOCAL_JSON}" ]; then
   echo "No composer.local.json; using image packages only."
+  write_stamp
   exit 0
 fi
 
@@ -47,6 +69,7 @@ foreach ($j["require"] ?? [] as $name => $constraint) {
 
 if [ "${#packages[@]}" -eq 0 ]; then
   echo "composer.local.json has no extra require entries."
+  write_stamp
   exit 0
 fi
 
@@ -67,3 +90,5 @@ fi
 composer require \
   "${composer_args[@]}" \
   "${packages[@]}"
+
+write_stamp

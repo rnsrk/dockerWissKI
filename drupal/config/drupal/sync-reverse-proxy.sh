@@ -4,7 +4,7 @@
 
 set -e
 
-SETTINGS_FILE="${SETTINGS_FILE:-/var/www/html/sites/default/settings.php}"
+SETTINGS_FILE="${SETTINGS_FILE:-/opt/drupal/web/sites/default/settings.php}"
 REVERSE_PROXY_PYTHON="${REVERSE_PROXY_PYTHON:-/usr/local/lib/wisski/reverse-proxy.py}"
 
 auto_detect_proxy_cidrs() {
