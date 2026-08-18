@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.2.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD)
+
+## [3.3.0](https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0) - 2026-08-18
 
 ### Added
 - Development image has an unprivileged `developer` user (host UID, default 1000, in `www-data`) for the attached IDE. PID 1 stays root; PHP-FPM stays `www-data`. `openssh-client` plus `/etc/ssh/ssh_config.d/drupal.conf` (`git.drupalcode.org` → `git.drupal.org`) so git SSH remotes work without copying keys.
@@ -210,7 +212,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.2.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD
+[3.3.0]: https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0
 [3.2.0]: https://github.com/rnsrk/dockerWissKI/compare/3.1.0...3.2.0
 [3.1.0]: https://github.com/rnsrk/dockerWissKI/compare/3.0.0...3.1.0
 [3.0.0]: https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0
