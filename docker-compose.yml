@@ -89,9 +89,9 @@ services:
     command:
       - postgres
       - -c
-      - shared_buffers=256MB
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
       - -c
-      - work_mem=16MB
+      - work_mem=${POSTGRES_WORK_MEM:-16MB}
       - -c
       - maintenance_work_mem=256MB
       - -c
@@ -103,7 +103,7 @@ services:
       - -c
       - random_page_cost=1.1
       - -c
-      - effective_cache_size=1536MB
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-1536MB}
       - -c
       - log_min_messages=warning
     volumes:
@@ -118,8 +118,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 2G
+          cpus: ${POSTGRES_CPUS:-2.0}
+          memory: ${POSTGRES_MEMORY:-2G}
         reservations:
           cpus: "0.5"
           memory: 1G
@@ -212,7 +212,7 @@ services:
   rdf4j:
     user: "0:0"
     environment:
-      JAVA_OPTS: -Xms256m -Xmx1g -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
+      JAVA_OPTS: -Xms${RDF4J_HEAP_MIN:-256m} -Xmx${RDF4J_HEAP_MAX:-1g} -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
     volumes:
       - ./config/opengdb/rdf4j-entrypoint.sh:/rdf4j-entrypoint.sh:ro
     entrypoint: ["/bin/bash", "/rdf4j-entrypoint.sh"]
@@ -229,11 +229,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 1536M
+          cpus: ${RDF4J_CPUS:-2.0}
+          memory: ${RDF4J_MEMORY:-1536M}
         reservations:
-          cpus: "0.25"
-          memory: 256M
+          cpus: "0.5"
+          memory: 512M
 
   # Overlay OpenGDB nginx: short Docker DNS TTL, wait for uWSGI.
   nginx:

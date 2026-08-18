@@ -50,8 +50,13 @@ Drupal concurrency is set in `.env` (recreate the container after changing):
 | `DRUPAL_MEMORY` | `4G` / `2G` | Drupal cgroup RAM |
 | `NGINX_WORKER_PROCESSES` | `4` / `2` | Nginx workers (`auto` uses host nproc) |
 | `PHP_FPM_MAX_CHILDREN` | `8` / `6` | Concurrent PHP requests |
+| `RDF4J_CPUS` | `6.0` / `2.0` | RDF4J (SPARQL) cgroup CPU |
+| `RDF4J_MEMORY` | `3G` / `1536M` | RDF4J cgroup RAM |
+| `RDF4J_HEAP_MAX` | `2g` / `1g` | JVM heap (`-Xmx`; keep ~1G below `RDF4J_MEMORY`) |
+| `POSTGRES_CPUS` | `4.0` / `2.0` | PostgreSQL cgroup CPU |
+| `POSTGRES_MEMORY` | `2G` / `2G` | PostgreSQL cgroup RAM |
 
-Raising nginx workers without `DRUPAL_CPUS` / `PHP_FPM_MAX_CHILDREN` does not speed Drupal up. SPARQL can approach 1G per PHP child, so keep `PHP_FPM_MAX_CHILDREN` in line with `DRUPAL_MEMORY`. `NGINX_WORKER_PROCESSES` and `PHP_FPM_MAX_CHILDREN` are applied at container start (need an image that includes that entrypoint).
+IEF subentity forms and SALZ adapters spend most of their time in SPARQL, not Drupal SQL. Raising `DRUPAL_CPUS` without `RDF4J_CPUS` / `RDF4J_HEAP_MAX` does not speed those up. Raising nginx workers without `DRUPAL_CPUS` / `PHP_FPM_MAX_CHILDREN` does not speed Drupal up. SPARQL can approach 1G per PHP child, so keep `PHP_FPM_MAX_CHILDREN` in line with `DRUPAL_MEMORY`. Recreate the service after changing these (`docker compose up -d`).
 
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
