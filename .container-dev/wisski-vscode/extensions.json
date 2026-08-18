@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    "bmewburn.vscode-intelephense-client",
+    "xdebug.php-debug",
+    "valeryanm.vscode-phpsab",
+    "stanislav.vscode-drupal",
+    "editorconfig.editorconfig",
+    "redhat.vscode-yaml",
+    "mblode.twig-language-2",
+    "stardog-union.vscode-langserver-turtle",
+    "dotjoshjohnson.xml",
+    "ecmel.vscode-html-css",
+    "rifi2k.format-html-in-php",
+    "yzhang.markdown-all-in-one",
+    "donjayamanne.githistory",
+    "gruntfuggly.todo-tree",
+    "mechatroner.rainbow-csv"
+  ],
+  "unwantedRecommendations": [
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-typescript-next"
+  ]
+}

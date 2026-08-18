@@ -1,0 +1,46 @@
+{
+  "php.validate.enable": false,
+  "php.validate.executablePath": "/usr/local/bin/php",
+  "intelephense.environment.includePaths": [
+    "/opt/drupal",
+    "/opt/drupal/vendor",
+    "/opt/drupal/web/core",
+    "/opt/drupal/web/modules/contrib/wisski"
+  ],
+  "intelephense.files.maxSize": 5000000,
+  "phpsab.standard": "/opt/drupal/web/modules/contrib/wisski/phpcs.xml.dist",
+  "phpsab.executablePathCS": "/opt/drupal/web/modules/contrib/wisski/vendor/bin/phpcs",
+  "phpsab.executablePathCBF": "/opt/drupal/web/modules/contrib/wisski/vendor/bin/phpcbf",
+  "phpsab.snifferEnable": true,
+  "phpsab.fixerEnable": true,
+  "files.associations": {
+    "*.module": "php",
+    "*.install": "php",
+    "*.inc": "php",
+    "*.theme": "php",
+    "*.profile": "php",
+    "*.engine": "php"
+  },
+  "[php]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false
+  },
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[json]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "editor.formatOnSave": false,
+  "editor.rulers": [80],
+  "search.exclude": {
+    "**/vendor/**": true,
+    "**/node_modules/**": true,
+    "**/.git/**": true
+  }
+}

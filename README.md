@@ -54,6 +54,38 @@ Raising nginx workers without `DRUPAL_CPUS` / `PHP_FPM_MAX_CHILDREN` does not sp
 
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
+### Attach Cursor / VS Code into Drupal
+
+For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.
+
+1. `cp docker-compose.override.yml.example docker-compose.override.yml`
+2. Append `:docker-compose.override.yml` to `COMPOSE_FILE` in `.env`
+3. `docker compose up -d`
+4. Optional: add personal files under `/.container-dev/` (`cursor/`, Machine settings, a WissKI clone) and uncomment those mounts in `docker-compose.override.yml`
+5. If you bind personal Machine `settings.json` files, create their parent dirs once:
+
+```bash
+docker compose exec -u root drupal mkdir -p \
+  /root/.cursor-server/data/Machine \
+  /root/.vscode-server/data/Machine
+```
+
+6. If those file mounts were added before the dirs existed: `docker compose up -d --force-recreate drupal`
+7. Attach Cursor/VS Code to the `drupal` service / container
+8. Open `/opt/drupal/web/modules/contrib/wisski`
+9. Start **Listen for Xdebug (in-container)**
+10. Trigger with `XDEBUG_TRIGGER=1` / a browser helper; for Drush: `XDEBUG_TRIGGER=1 drush --xdebug …`
+
+Optional live edit of a host WissKI clone: set `WISSKI_HOST_PATH` and uncomment that mount in the override (one module only — do not mount `vendor` or all of `contrib`). Development Xdebug is baked into the image (`127.0.0.1:9003`, trigger mode) for an IDE attached into `drupal`.
+
+Per-developer (untracked) IDE customization:
+
+- Shared workspace config is [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/) (`settings.json`, `launch.json`, `extensions.json`), mounted onto `/opt/drupal/web/modules/contrib/wisski/.vscode`.
+- Personal files stay gitignored under `/.container-dev/` (`cursor/`, `wisski/`, `vscode-machine-settings.json`). The override example has opt-in mounts for those.
+- VS Code extensions themselves stay untracked in the persisted remote server volume.
+- If you do not bind personal Machine settings files, edit remote settings directly in the attached container; they still persist in the named volumes and stay out of git.
+- The local image build uses `./drupal` as its Docker build context, so repo-root `/.container-dev/` content is not copied into the image.
+
 ## Access
 
 | What | URL (defaults) |
@@ -117,6 +149,7 @@ config/varnish/default.vcl              # Varnish (production profile)
 config/pgadmin/                         # pgAdmin servers.json (filled from DB_* on start)
 config/opengdb/                         # RDF4J entrypoint, nginx DNS TTL
 config/drupal/                          # example composer.local.json
+.container-dev/wisski-vscode/           # shared in-container VS Code workspace files
 drupal/config/                          # PHP, Nginx, Redis baked into the image
 ```
 

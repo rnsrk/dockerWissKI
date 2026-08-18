@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Listen for Xdebug (in-container)",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "hostname": "127.0.0.1",
+      "pathMappings": {
+        "/opt/drupal/web/modules/contrib/wisski": "${workspaceFolder}"
+      }
+    }
+  ]
+}

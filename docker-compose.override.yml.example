@@ -1,15 +1,58 @@
 # Machine-local Compose overlay. Copy to docker-compose.override.yml (gitignored)
 # and append :docker-compose.override.yml to COMPOSE_FILE in .env.
 #
-# Last file in COMPOSE_FILE wins. Keep this document valid Compose YAML
-# (a comment-only file is rejected as empty).
+# Last file in COMPOSE_FILE wins. Keep this document valid Compose YAML.
+#
+# Default below persists remote Cursor/VS Code server state in named volumes
+# and mounts the shared WissKI workspace `.vscode/` from this repo.
+# Uncomment personal mounts from gitignored `.container-dev/` (Machine
+# settings, Cursor rules/skills). Optional WissKI host bind-mount is commented.
+#
+# Optional host path for live WissKI module editing (uncomment the mount below):
+#   WISSKI_HOST_PATH=/absolute/or/relative/path/to/wisski/clone
+#
+# Personal container-only IDE config (gitignored except wisski-vscode/):
+#   CONTAINER_DEV_PATH=./.container-dev
+# Put Machine settings, Cursor rules/skills, and a local WissKI clone there.
 
-services: {}
+services:
+  drupal:
+    volumes:
+      # --- Persist remote IDE server + agent state (recommended) ---
+      - cursor-server:/root/.cursor-server
+      - vscode-server:/root/.vscode-server
+      - cursor-directory:/root/.cursor
 
-# services:
-#   drupal:
-#     volumes:
-#       - ./path/to/module:/opt/drupal/web/modules/custom/my-module
-#   postgres:
-#     ports:
-#       - "127.0.0.1:5432:5432"
+      # --- Optional: personal container-only IDE config (untracked) ---
+      # Uncomment the files/dirs you want from your personal gitignored folder.
+      # Cursor and VS Code share the same settings schema but keep separate
+      # remote-server dirs; mount one host file to both destinations:
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/root/.cursor-server/data/Machine/settings.json:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/root/.vscode-server/data/Machine/settings.json:ro
+      #
+      # Optional Cursor rules / skills that apply only inside the attached container:
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/root/.cursor/rules:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/skills:/root/.cursor/skills:ro
+
+      # Shared WissKI workspace VS Code/Cursor config (in this repo).
+      - ./.container-dev/wisski-vscode:/opt/drupal/web/modules/contrib/wisski/.vscode:ro
+
+      # --- Optional: live-edit WissKI from a host clone (ONE module only) ---
+      # Do NOT mount all of web/modules/contrib or vendor.
+      # - ${WISSKI_HOST_PATH:-../wisski}:/opt/drupal/web/modules/contrib/wisski
+
+      # --- Optional: custom site code ---
+      # - ./path/to/module:/opt/drupal/web/modules/custom/my-module
+      # - ./path/to/theme:/opt/drupal/web/themes/custom/my-theme
+
+    # Optional: expose Postgres on localhost for host GUI tools
+    # (pgAdmin is already available via profile tools)
+
+  # postgres:
+  #   ports:
+  #     - "127.0.0.1:5432:5432"
+
+volumes:
+  cursor-server:
+  vscode-server:
+  cursor-directory:

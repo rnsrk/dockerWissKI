@@ -13,3 +13,10 @@ private_files/
 .cursor/
 .vscode/
 .idea/
+
+# Personal container-only IDE config (mounted via docker-compose.override.yml).
+# Shared WissKI workspace VS Code files are tracked; ignore the rest
+# (Cursor rules/skills, local WissKI clone, Machine settings, …).
+.container-dev/*
+!.container-dev/wisski-vscode/
+!.container-dev/wisski-vscode/**
