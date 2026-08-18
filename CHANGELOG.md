@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD)
+
+## [3.4.0](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0) - 2026-08-18
 
 ### Changed
 - Drupal image is based on `php:8.4-fpm-bookworm` (was 8.3).
@@ -217,7 +219,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD
+[3.4.0]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0
 [3.3.0]: https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0
 [3.2.0]: https://github.com/rnsrk/dockerWissKI/compare/3.1.0...3.2.0
 [3.1.0]: https://github.com/rnsrk/dockerWissKI/compare/3.0.0...3.1.0
