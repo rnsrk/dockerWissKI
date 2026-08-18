@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.0.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.1.0...HEAD)
+
+## [3.1.0](https://github.com/rnsrk/dockerWissKI/compare/3.0.0...3.1.0) - 2026-08-18
 
 ### Added
 - Development image bakes WissKI lint tools (`phpcs`, `phpstan`, `parallel-lint`, …) from the module `require-dev` into site vendor when present (WissKI 4.x; 3.x has none), puts `/opt/drupal/vendor/bin` on `PATH`, and ships Node 22 with global `cspell`. Site extras no longer strip those packages on boot.
@@ -189,7 +191,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.0.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.1.0...HEAD
+[3.1.0]: https://github.com/rnsrk/dockerWissKI/compare/3.0.0...3.1.0
 [3.0.0]: https://github.com/rnsrk/dockerWissKI/compare/2.0.1...3.0.0
 [2.0.1]: https://github.com/rnsrk/dockerWissKI/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/rnsrk/dockerWissKI/compare/1.0.1...2.0.0
