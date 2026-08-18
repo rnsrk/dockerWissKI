@@ -114,8 +114,8 @@ ARG WISSKI_PACKAGES_LINE=3.x
 
 # Runtime packages only (no autoconf, lib*-dev, or other build toolchain).
 # iipsrv, Redis, and the triplestore run in separate processes/containers.
-# Development images also get operator CLI helpers (rg, fd, jq, …) so
-# docker exec / agent searches work without "command not found".
+# Development images also get operator CLI helpers (rg, fd, jq, ssh, …) so
+# docker exec / agent searches and git@ remotes work without "command not found".
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -159,6 +159,7 @@ RUN set -eux; \
     gnupg \
     jq \
     less \
+    openssh-client \
     procps \
     ripgrep \
     tree; \
@@ -350,6 +351,13 @@ RUN set -eux; \
 # at runtime, so doing this once at build time avoids a slow recursive walk over
 # vendor/ on first boot. Runtime only adjusts the writable state directories and
 # locks down the generated settings files (see set-permissions.sh).
+#
+# Development also creates `developer` (host UID, in www-data) so an attached
+# IDE can git/edit under /opt/drupal without root or sudo. PID 1 stays root
+# (nginx, php-fpm). PHP-FPM workers stay www-data. Group-write + setgid on
+# the tree is how developer gets access; they do not install system packages.
+ARG DEV_UID=1000
+ARG DEV_GID=1000
 RUN set -eux; \
     find /opt/drupal -type d -exec chmod 755 {} +; \
     find /opt/drupal -type f -exec chmod 644 {} +; \
@@ -358,7 +366,21 @@ RUN set -eux; \
     fi; \
     find /opt/drupal/vendor -type f -print0 | xargs -0 grep -l -m1 '^#!' 2>/dev/null | xargs -r chmod 755; \
     find /opt/drupal/web -name .htaccess -exec chmod 444 {} +; \
-    if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi
+    if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi; \
+    if [ "$MODE" = "development" ]; then \
+    groupadd --gid "${DEV_GID}" developer; \
+    useradd --uid "${DEV_UID}" --gid developer --groups www-data \
+      --create-home --home-dir /home/developer --shell /bin/bash developer; \
+    chmod -R g+w /opt/drupal; \
+    find /opt/drupal -type d -exec chmod g+s {} +; \
+    find /opt/drupal/web -name .htaccess -exec chmod 444 {} +; \
+    if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi; \
+    printf '%s\n' \
+      'Host git.drupalcode.org' \
+      '  Hostname git.drupal.org' \
+      '  User git' \
+      > /etc/ssh/ssh_config.d/drupal.conf; \
+    fi
 
 # Persistent private files live outside the web root (mounted as a volume).
 RUN set -eux; \

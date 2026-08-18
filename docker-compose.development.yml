@@ -6,3 +6,9 @@ services:
     ports:
       - ${HTTP_PORT:-80}:80
       - ${XDEBUG_PORT:-9003}:9003
+    environment:
+      DEV_UID: ${DEV_UID:-1000}
+      DEV_GID: ${DEV_GID:-1000}
+    labels:
+      # Attach Cursor/VS Code as `developer` (not root). PID 1 stays root.
+      devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'

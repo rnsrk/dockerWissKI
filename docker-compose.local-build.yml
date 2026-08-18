@@ -10,6 +10,8 @@ services:
         MODE: ${MODE:-production}
         WISSKI_PACKAGES_VERSION: ${WISSKI_PACKAGES_VERSION:-3.7.0}
         WISSKI_PACKAGES_LINE: ${WISSKI_PACKAGES_LINE:-3.x}
+        DEV_UID: ${DEV_UID:-1000}
+        DEV_GID: ${DEV_GID:-1000}
     develop:
       watch:
         - action: rebuild

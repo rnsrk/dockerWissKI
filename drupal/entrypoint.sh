@@ -55,6 +55,37 @@ echo -e "\n"
 echo "USER: $(whoami)"
 echo "PWD: $(pwd)"
 
+# Development: keep `developer` on the host UID so bind-mounted ~/.ssh and a
+# host WissKI clone are writable without copying keys. PID 1 stays root.
+if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
+  uid="${DEV_UID:-1000}"
+  gid="${DEV_GID:-1000}"
+  case "${uid}" in
+    0|33)
+      echo -e "\033[0;33mDEV_UID=${uid} is reserved (root/www-data); leaving developer unchanged.\033[0m"
+      ;;
+    *)
+      if [ "$(id -u developer)" != "${uid}" ]; then
+        usermod -u "${uid}" developer
+      fi
+      if [ "$(id -g developer)" != "${gid}" ]; then
+        if getent group "${gid}" >/dev/null; then
+          usermod -g "${gid}" developer
+        else
+          groupmod -g "${gid}" developer
+        fi
+      fi
+      ;;
+  esac
+  chown developer:developer /home/developer
+  # Named IDE volumes start as root. Ignore EROFS on optional :ro file binds
+  # (Machine settings.json).
+  for dir in /home/developer/.cursor-server /home/developer/.vscode-server /home/developer/.cursor; do
+    mkdir -p "${dir}"
+    chown -R developer:developer "${dir}" || true
+  done
+fi
+
 # Validate required environment variables.
 echo -e "\033[0;33mVALIDATING ENVIRONMENT VARIABLES...\033[0m"
 

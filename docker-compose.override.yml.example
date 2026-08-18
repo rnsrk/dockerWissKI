@@ -6,10 +6,21 @@
 # Default below persists remote Cursor/VS Code server state in named volumes
 # and mounts the shared WissKI workspace `.vscode/` from this repo.
 # Uncomment personal mounts from gitignored `.container-dev/` (Machine
-# settings, Cursor rules/skills). Optional WissKI host bind-mount is commented.
+# settings, Cursor rules/skills). Optional WissKI host bind and SSH key
+# mounts are commented.
+#
+# Attach as user `developer` (host UID, default 1000). PID 1 stays root for
+# nginx/php-fpm. Set DEV_UID/DEV_GID in .env if your host user is not 1000.
 #
 # Optional host path for live WissKI module editing (uncomment the mount below):
 #   WISSKI_HOST_PATH=/absolute/or/relative/path/to/wisski/clone
+#
+# Optional host SSH keys for git@ remotes from the attached IDE (uncomment
+# the mount below). Direct bind onto /home/developer/.ssh — OpenSSH accepts
+# it because developer matches the host UID. Prefer a dedicated key dir if
+# you do not want the full host agent config inside the container:
+#   SSH_HOST_PATH=/home/you/.ssh
+#   SSH_HOST_PATH=./.container-dev/ssh
 #
 # Personal container-only IDE config (gitignored except wisski-vscode/):
 #   CONTAINER_DEV_PATH=./.container-dev
@@ -19,20 +30,27 @@ services:
   drupal:
     volumes:
       # --- Persist remote IDE server + agent state (recommended) ---
-      - cursor-server:/root/.cursor-server
-      - vscode-server:/root/.vscode-server
-      - cursor-directory:/root/.cursor
+      - cursor-server:/home/developer/.cursor-server
+      - vscode-server:/home/developer/.vscode-server
+      - cursor-directory:/home/developer/.cursor
 
       # --- Optional: personal container-only IDE config (untracked) ---
       # Uncomment the files/dirs you want from your personal gitignored folder.
       # Cursor and VS Code share the same settings schema but keep separate
       # remote-server dirs; mount one host file to both destinations:
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/root/.cursor-server/data/Machine/settings.json:ro
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/root/.vscode-server/data/Machine/settings.json:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.cursor-server/data/Machine/settings.json:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.vscode-server/data/Machine/settings.json:ro
       #
       # Optional Cursor rules / skills that apply only inside the attached container:
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/root/.cursor/rules:ro
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/skills:/root/.cursor/skills:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/home/developer/.cursor/rules:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/skills:/home/developer/.cursor/skills:ro
+
+      # --- Optional: host SSH keys for git@ remotes ---
+      # Development image includes openssh-client. Attach as `developer` so a
+      # direct bind works (no key copying). Uncomment one:
+      # - ~/.ssh:/home/developer/.ssh
+      # - ${SSH_HOST_PATH}:/home/developer/.ssh
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/ssh:/home/developer/.ssh
 
       # Shared WissKI workspace VS Code/Cursor config (in this repo).
       - ./.container-dev/wisski-vscode:/opt/drupal/web/modules/contrib/wisski/.vscode:ro

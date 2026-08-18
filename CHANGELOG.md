@@ -2,6 +2,13 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.2.0...HEAD)
 
+### Added
+- Development image has an unprivileged `developer` user (host UID, default 1000, in `www-data`) for the attached IDE. PID 1 stays root; PHP-FPM stays `www-data`. `openssh-client` plus `/etc/ssh/ssh_config.d/drupal.conf` (`git.drupalcode.org` → `git.drupal.org`) so git SSH remotes work without copying keys.
+- Optional host SSH key bind-mount in `docker-compose.override.yml.example` (`~/.ssh` or `SSH_HOST_PATH` → `/home/developer/.ssh`). Set `DEV_UID`/`DEV_GID` in `.env` if the host user is not 1000.
+
+### Changed
+- Override example persists Cursor/VS Code server volumes under `/home/developer/` instead of `/root/`. Attach as `developer` (compose label `remoteUser`).
+
 ## [3.2.0](https://github.com/rnsrk/dockerWissKI/compare/3.1.0...3.2.0) - 2026-08-18
 
 ### Changed
