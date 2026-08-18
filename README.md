@@ -41,6 +41,17 @@ pgAdmin is the Compose profile `tools` (enabled in both presets). Omit it by rem
 
 Redis persistence is RDB only. Background saves need `vm.overcommit_memory=1` on the **host** (Docker cannot set this inside the container): `sudo sysctl -w vm.overcommit_memory=1`.
 
+Drupal concurrency is set in `.env` (recreate the container after changing):
+
+| Variable | Default (dev / prod) | What it sizes |
+| --- | --- | --- |
+| `DRUPAL_CPUS` | `6.0` / `2.0` | Drupal cgroup CPU |
+| `DRUPAL_MEMORY` | `4G` / `2G` | Drupal cgroup RAM |
+| `NGINX_WORKER_PROCESSES` | `4` / `2` | Nginx workers (`auto` uses host nproc) |
+| `PHP_FPM_MAX_CHILDREN` | `8` / `6` | Concurrent PHP requests |
+
+Raising nginx workers without `DRUPAL_CPUS` / `PHP_FPM_MAX_CHILDREN` does not speed Drupal up. SPARQL can approach 1G per PHP child, so keep `PHP_FPM_MAX_CHILDREN` in line with `DRUPAL_MEMORY`. `NGINX_WORKER_PROCESSES` and `PHP_FPM_MAX_CHILDREN` are applied at container start (need an image that includes that entrypoint).
+
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
 ## Access

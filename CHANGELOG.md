@@ -4,9 +4,11 @@
 
 ### Added
 - Development image bakes WissKI lint tools (`phpcs`, `phpstan`, `parallel-lint`, …) from the module `require-dev` into site vendor when present (WissKI 4.x; 3.x has none), puts `/opt/drupal/vendor/bin` on `PATH`, and ships Node 22 with global `cspell`. Site extras no longer strip those packages on boot.
+- Drupal process budget via `.env`: `DRUPAL_CPUS`, `DRUPAL_MEMORY`, `NGINX_WORKER_PROCESSES`, `PHP_FPM_MAX_CHILDREN`. Development preset is 6 CPU / 4G / 4 nginx workers / 8 PHP children.
 
 ### Changed
 - Compose layout: `docker-compose.yml` is the default stack; `docker-compose.development.yml` / `docker-compose.production.yml` alone select the environment. Local Drupal builds are the optional overlay `docker-compose.local-build.yml`. `docker-compose.override.yml` is gitignored (see `docker-compose.override.yml.example`). Existing `.env` files must drop `docker-compose.override.yml` from `COMPOSE_FILE` unless they keep a local copy.
+- Nginx workers default to 2 (or `NGINX_WORKER_PROCESSES`) instead of `auto` (host nproc).
 - Restarting the same Drupal container skips a repeat `composer require` of `composer.local.json`. Recreate still re-applies extras onto the image.
 
 ### Fixed

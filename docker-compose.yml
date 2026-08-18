@@ -45,6 +45,8 @@ services:
       DRUPAL_USER: ${DRUPAL_USER:-admin}
       ENTRYPOINT_DEBUG: ${ENTRYPOINT_DEBUG:-}
       MODE: ${MODE:-production}
+      NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-2}
+      PHP_FPM_MAX_CHILDREN: ${PHP_FPM_MAX_CHILDREN:-6}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       TS_PASSWORD: ${TS_PASSWORD:-}
@@ -71,8 +73,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 2G
+          cpus: ${DRUPAL_CPUS:-2.0}
+          memory: ${DRUPAL_MEMORY:-2G}
         reservations:
           cpus: "0.5"
           memory: 512M

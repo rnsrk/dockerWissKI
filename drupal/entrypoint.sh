@@ -592,6 +592,48 @@ else
   exit 1
 fi
 
+# NGINX_WORKER_PROCESSES and PHP_FPM_MAX_CHILDREN come from .env / Compose.
+# Raising workers without DRUPAL_CPUS / DRUPAL_MEMORY still hits the 2 CPU / 2G cgroup.
+apply_runtime_performance() {
+  local workers="${NGINX_WORKER_PROCESSES:-2}"
+  local children="${PHP_FPM_MAX_CHILDREN:-6}"
+
+  case "${workers}" in
+    auto|[1-9]|[1-9][0-9]) ;;
+    *)
+      echo -e "\033[0;33mWARNING: invalid NGINX_WORKER_PROCESSES=${workers}; using 2.\033[0m"
+      workers=2
+      ;;
+  esac
+
+  if ! [[ "${children}" =~ ^[1-9][0-9]*$ ]] || [ "${children}" -gt 64 ]; then
+    echo -e "\033[0;33mWARNING: invalid PHP_FPM_MAX_CHILDREN=${children}; using 6.\033[0m"
+    children=6
+  fi
+
+  sed -i "s/^worker_processes .*/worker_processes ${workers};/" /etc/nginx/nginx.conf
+
+  local start=$((children / 3))
+  [ "${start}" -lt 1 ] && start=1
+  local maxSpare=$((children / 2))
+  [ "${maxSpare}" -lt 1 ] && maxSpare=1
+  local minSpare=1
+  [ "${minSpare}" -gt "${maxSpare}" ] && minSpare="${maxSpare}"
+
+  cat > /usr/local/etc/php-fpm.d/zzz-wisski-runtime.conf <<EOF
+[www]
+pm = dynamic
+pm.max_children = ${children}
+pm.start_servers = ${start}
+pm.min_spare_servers = ${minSpare}
+pm.max_spare_servers = ${maxSpare}
+pm.max_requests = 500
+request_terminate_timeout = 300
+EOF
+
+  echo -e "\033[0;32mRUNTIME PERFORMANCE: nginx workers=${workers}, php-fpm max_children=${children}.\033[0m\n"
+}
+
 start_php_fpm() {
   if pgrep -x php-fpm >/dev/null 2>&1; then
     echo -e "\033[0;32mPHP-FPM already running.\033[0m"
@@ -651,6 +693,7 @@ trap shutdownServices TERM INT
 echo -e "\n"
 
 ensure_xdebug_log
+apply_runtime_performance
 start_php_fpm
 start_memcached
 start_iipsrv
