@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.1.0...HEAD)
 
+### Changed
+- Development Xdebug connects to `127.0.0.1:9003` (IDE attached into the Drupal container), not `host.docker.internal`.
+
 ## [3.1.0](https://github.com/rnsrk/dockerWissKI/compare/3.0.0...3.1.0) - 2026-08-18
 
 ### Added
