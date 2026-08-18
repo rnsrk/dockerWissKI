@@ -152,8 +152,10 @@ RUN set -eux; \
     if [ "$MODE" = "development" ]; then \
     apt-get install -y --no-install-recommends \
     bash-completion \
+    ca-certificates \
     fd-find \
     file \
+    gnupg \
     jq \
     less \
     procps \
@@ -161,6 +163,18 @@ RUN set -eux; \
     tree; \
     ln -sfn /usr/bin/fdfind /usr/local/bin/fd; \
     fi; \
+    rm -rf /var/lib/apt/lists/*
+
+# Node 22 + cspell for WissKI lint.sh / quicklint.sh (development only).
+# Matches the official WissKI Dockerfile (nodesource 22, global corepack + cspell).
+RUN set -eux; \
+    if [ "$MODE" != "development" ]; then \
+    exit 0; \
+    fi; \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    npm install -g corepack cspell; \
+    npm cache clean --force; \
     rm -rf /var/lib/apt/lists/*
 
 # Copy compiled PHP extensions and enablement snippets from the builder.
@@ -269,6 +283,37 @@ RUN set -eux; \
     cp composer.json .wisski-composer.json; \
     if [ -f composer.lock ]; then cp composer.lock .wisski-composer.lock; fi; \
     mkdir -p /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom; \
+    chown -R www-data:www-data /opt/drupal
+
+# WissKI lint tools (phpcs, phpstan, parallel-lint, …) into site vendor.
+# Constraints come from the installed module so the image stays in sync.
+# 3.x (dev-scs_base) has no require-dev; skip rather than `composer require` with
+# no packages (that prints usage and fails the build with xargs exit 123).
+# phpunit is skipped (needs drupal/core-dev; that is a test-runner concern).
+ENV PATH="/opt/drupal/vendor/bin:${PATH}"
+COPY config/drupal/lib/list-wisski-require-dev.php /tmp/list-wisski-require-dev.php
+RUN set -eux; \
+    if [ "$MODE" != "development" ]; then \
+    rm -f /tmp/list-wisski-require-dev.php; \
+    exit 0; \
+    fi; \
+    cd /opt/drupal; \
+    php /tmp/list-wisski-require-dev.php web/modules/contrib/wisski/composer.json > /tmp/wisski-require-dev.txt; \
+    if [ ! -s /tmp/wisski-require-dev.txt ]; then \
+    echo "WissKI composer.json has no require-dev lint packages; skipping."; \
+    else \
+    set --; \
+    while IFS= read -r pkg || [ -n "$pkg" ]; do \
+    [ -n "$pkg" ] || continue; \
+    set -- "$@" "$pkg"; \
+    done < /tmp/wisski-require-dev.txt; \
+    composer require --dev --no-update --no-interaction --no-progress "$@"; \
+    composer update --with-all-dependencies --no-interaction --no-progress; \
+    cp composer.json .wisski-composer.json; \
+    cp composer.lock .wisski-composer.lock; \
+    fi; \
+    rm -f /tmp/list-wisski-require-dev.php /tmp/wisski-require-dev.txt; \
+    composer clear-cache; \
     chown -R www-data:www-data /opt/drupal
 
 # JS libraries for WissKI and DLF AIM 3D Viewer (mirrors drush download commands).

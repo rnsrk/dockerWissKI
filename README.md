@@ -33,6 +33,7 @@ First boot installs Drupal and WissKI recipes; that can take several minutes. Fo
 | Public HTTP (`HTTP_PORT`, default 80) | Drupal | Varnish |
 | Varnish | off | on (`COMPOSE_PROFILES` includes `production`) |
 | Xdebug | port 9003, trigger mode | not installed |
+| Lint tools | phpcs, phpstan, cspell (baked in) | not included |
 | Page cache | off | 5 minutes |
 | Drupal bypass | n/a | `127.0.0.1:8082` |
 
@@ -127,6 +128,8 @@ COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.lo
 
 `docker-compose.override.yml` is gitignored. Copy the example and append it last for bind-mounts, extra ports, or other machine-only changes.
 
+The development image installs WissKI’s PHP lint tools from the module `require-dev` when that key exists (WissKI 4.x; 3.x `scs_base` has none) and global `cspell`. Do not put those packages in `composer.local.json`.
+
 ## Updating OpenGDB
 
 ```bash
@@ -144,6 +147,7 @@ The Drupal codebase in the image is replaced on every container start. Binding `
 | What | Where it lives | How to add it |
 | --- | --- | --- |
 | Drupal core, WissKI, image packages | Image | Pull a new image |
+| WissKI lint tools (phpcs, phpstan, cspell) | Development image | baked at build; do not put in `composer.local.json` |
 | Extra Composer packages (contrib modules, libraries) | `web/sites/composer.local.json` on the sites volume | `docker compose exec drupal wisski-composer require drupal/webform:^6.2` |
 | Custom modules | volume `web/modules/custom` | copy or bind-mount your code |
 | Custom themes | volume `web/themes/custom` | copy or bind-mount your code |

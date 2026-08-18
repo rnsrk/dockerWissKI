@@ -53,9 +53,17 @@ fi
 echo "Applying extra Composer packages from composer.local.json:"
 printf '  - %s\n' "${packages[@]}"
 
+# --update-no-dev uninstalls require-dev (phpcs, phpstan, …). The development
+# image bakes those into .wisski-composer.json; keep them when present.
+composer_args=(
+  --no-interaction
+  --no-progress
+  --update-with-dependencies
+)
+if ! php -r 'exit(!empty(json_decode(file_get_contents($argv[1]), true)["require-dev"] ?? []) ? 0 : 1);' "${BAKED_JSON}"; then
+  composer_args+=(--update-no-dev)
+fi
+
 composer require \
-  --no-interaction \
-  --no-progress \
-  --update-no-dev \
-  --update-with-dependencies \
+  "${composer_args[@]}" \
   "${packages[@]}"
