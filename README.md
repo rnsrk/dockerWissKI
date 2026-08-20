@@ -1,6 +1,6 @@
 # Docker WissKI
 
-Standalone WissKI stack with a PHP-FPM Drupal image, PostgreSQL 16, [OpenGDB](https://github.com/FAU-CDI/open_gdb), Redis, Varnish, Caddy, and pgAdmin. Solr and the [WissKI Data Importer](https://gitlab.nasarek.dev/rnsrk/wisski_data_importer) UI are optional.
+Standalone WissKI stack with a PHP 8.5 FPM Drupal image, PostgreSQL 17, [OpenGDB](https://github.com/FAU-CDI/open_gdb) (RDF4J 6), Redis 8, Varnish 8, Caddy, and pgAdmin. Solr 10 and the [WissKI Data Importer](https://gitlab.nasarek.dev/rnsrk/wisski_data_importer) UI are optional.
 
 This repository builds and publishes its own images. It does not depend on the SODA SCS stack.
 
@@ -161,7 +161,7 @@ docker-compose.apple-silicon.yml        # optional: amd64 via Rosetta (append)
 docker-compose.override.yml.example     # template for machine-local overlay
 env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
-drupal/                                 # PHP 8.4 FPM image (Dockerfile, entrypoint, PHP/Nginx)
+drupal/                                 # PHP 8.5 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
 wisski_data_importer/                   # git submodule (optional importer UI)
 config/caddy/Caddyfile                  # Caddy Host routes

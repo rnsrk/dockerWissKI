@@ -47,7 +47,7 @@ services:
       - ${WISSKI_DATA_IMPORTER_PORT:-8000}:8000
 
   wisski-data-importer-postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${WISSKI_DATA_IMPORTER_PG_APP_DATABASE:-app_config}
@@ -64,7 +64,7 @@ services:
       start_period: 20s
 
   wisski-data-importer-redis:
-    image: redis:7.4-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     command: redis-server --maxmemory 64mb --maxmemory-policy noeviction --save "" --appendonly no
     healthcheck:

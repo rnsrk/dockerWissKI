@@ -1,6 +1,6 @@
-# PHP 8.4 FPM. Drupal core and modules are installed from the packages
+# PHP 8.5 FPM. Drupal core and modules are installed from the packages
 # manifest, so the official Drupal image is not used.
-ARG PHP_BASE_IMAGE_TAG=8.4-fpm-bookworm
+ARG PHP_BASE_IMAGE_TAG=8.5-fpm-bookworm
 
 # -----------------------------------------------------------------------------
 # Builder: compile PHP extensions and iipsrv; toolchain stays in this stage.
@@ -73,13 +73,13 @@ RUN set -eux; \
 
 # Redis.
 RUN set -eux; \
-    pecl install redis-6.1.0; \
+    pecl install redis-6.3.0; \
     docker-php-ext-enable redis
 
 # xdebug (development mode only).
 RUN set -eux; \
     if [ "$MODE" = "development" ]; then \
-    pecl install xdebug-3.4.3; \
+    pecl install xdebug-3.5.3; \
     docker-php-ext-enable xdebug; \
     fi
 

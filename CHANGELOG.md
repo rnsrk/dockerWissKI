@@ -1,6 +1,19 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.5.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/4.0.0...HEAD)
+
+## [4.0.0](https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0) - 2026-08-20
+
+### Breaking Changes
+- Drupal image is based on `php:8.5-fpm-bookworm` (was 8.4). Rebuild or pull a new GHCR image. Drupal 11.3+ is required (packages pin `^11.4`).
+- PostgreSQL is `postgres:17` (was 16). Volume `postgres-data` from 16 will not start; dump/restore into a new volume (or `pg_upgrade`). Importer overlay is `postgres:17-alpine`.
+- Solr is `solr:10` (was 9.7). Recreate `solr-data` and Search API cores. Dropped `SOLR_OPTS=-Djava.security.manager=allow` (Java 25 in the Solr 10 image rejects enabling the Security Manager).
+- Redis is `redis:8-alpine` (was 7.4). Recreate `redis-data` if the 7.4 RDB is refused. Importer overlay is `redis:8-alpine`.
+- Varnish is `varnish:8` (was 7.6). Production profile only; cache is tmpfs.
+- OpenGDB RDF4J is pinned to `eclipse/rdf4j-workbench:6.0.0` (Tomcat). OpenGDB previously floated untagged `latest` (RDF4J 5.x). Volume `rdf4j-data` from 5.x is not reused.
+
+### Changed
+- Development image installs Xdebug 3.5.3 (PHP 8.5) and phpredis 6.3.0.
 
 ## [3.5.0](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0) - 2026-08-20
 
@@ -225,7 +238,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...HEAD
+[4.0.0]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0
 [3.5.0]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0
 [3.4.0]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0
 [3.3.0]: https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0

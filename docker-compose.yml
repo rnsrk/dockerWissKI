@@ -81,7 +81,7 @@ services:
           memory: 512M
 
   postgres:
-    image: postgres:16
+    image: postgres:17
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-wisski}
@@ -126,7 +126,7 @@ services:
           memory: 1G
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --appendonly no --loglevel warning
     volumes:
@@ -146,7 +146,7 @@ services:
           memory: 256M
 
   solr:
-    image: solr:9.7
+    image: solr:10
     profiles: [solr]
     restart: unless-stopped
     ports:
@@ -154,7 +154,6 @@ services:
     environment:
       SOLR_JAVA_MEM: "-Xms512M -Xmx1G"
       SOLR_ULIMIT_CHECKS: "false"
-      SOLR_OPTS: "-Djava.security.manager=allow"
     ulimits:
       nofile:
         soft: 65000
@@ -177,7 +176,7 @@ services:
           memory: 512M
 
   varnish:
-    image: varnish:7.6
+    image: varnish:8
     profiles: [production]
     restart: unless-stopped
     depends_on:
@@ -209,8 +208,9 @@ services:
           cpus: "0.25"
           memory: 256M
 
-  # Overlay OpenGDB rdf4j: fix volume UID, cap heap, wait until the protocol is up.
+  # Overlay OpenGDB rdf4j: pin RDF4J 6 (Tomcat), fix volume UID, cap heap, wait until the protocol is up.
   rdf4j:
+    image: eclipse/rdf4j-workbench:6.0.0
     user: "0:0"
     environment:
       JAVA_OPTS: -Xms${RDF4J_HEAP_MIN:-256m} -Xmx${RDF4J_HEAP_MAX:-1g} -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
