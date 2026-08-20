@@ -1,6 +1,6 @@
 # Docker WissKI
 
-Standalone WissKI stack with a PHP-FPM Drupal image, PostgreSQL 16, [OpenGDB](https://github.com/FAU-CDI/open_gdb), Redis, Varnish, and pgAdmin. Solr is optional.
+Standalone WissKI stack with a PHP-FPM Drupal image, PostgreSQL 16, [OpenGDB](https://github.com/FAU-CDI/open_gdb), Redis, Varnish, Caddy, and pgAdmin. Solr is optional.
 
 This repository builds and publishes its own images. It does not depend on the SODA SCS stack.
 
@@ -8,8 +8,8 @@ This repository builds and publishes its own images. It does not depend on the S
 
 | Image | When to use |
 | --- | --- |
-| `ghcr.io/rnsrk/dockerwisski-production` | OPcache on, no Xdebug, Varnish in front |
-| `ghcr.io/rnsrk/dockerwisski-development` | OPcache off, Xdebug on port 9003, Drupal is the HTTP entry |
+| `ghcr.io/rnsrk/dockerwisski-production` | OPcache on, no Xdebug, Caddy → Varnish |
+| `ghcr.io/rnsrk/dockerwisski-development` | OPcache off, Xdebug on port 9003, Caddy → Drupal |
 
 After the first GitHub Actions publish, set the GHCR packages to **public** so pulls do not need a token.
 
@@ -30,13 +30,14 @@ First boot installs Drupal and WissKI recipes; that can take several minutes. Fo
 | | Development (`env/development.env`) | Production (`env/production.env`) |
 | --- | --- | --- |
 | Image | `dockerwisski-development` | `dockerwisski-production` |
-| Public HTTP (`HTTP_PORT`, default 80) | Drupal | Varnish |
+| Public HTTP (`HTTP_PORT`, default 80) | Caddy → Drupal | Caddy → Varnish |
 | Varnish | off | on (`COMPOSE_PROFILES` includes `production`) |
+| Caddy subdomains | `wisski.localhost`, `drupal.wisski.localhost`, … | same; site upstream is Varnish |
 | Xdebug | port 9003, trigger mode | not installed |
 | Lint tools | phpcs, phpstan, cspell (baked in) | not included |
 | Git SSH | `openssh-client`, user `developer` | not included |
 | Page cache | off | 5 minutes |
-| Drupal bypass | n/a | `127.0.0.1:8082` |
+| Drupal bypass | `drupal.wisski.localhost` | `drupal.wisski.localhost` (replaces `127.0.0.1:8082`) |
 
 pgAdmin is the Compose profile `tools` (enabled in both presets). Omit it by removing `tools` from `COMPOSE_PROFILES`. Solr is the profile `solr` (off by default); add `solr` to `COMPOSE_PROFILES` when Search API needs it.
 
@@ -99,14 +100,18 @@ Per-developer (untracked) IDE customization:
 
 ## Access
 
+Caddy listens on `HTTP_PORT` (default 80) and routes by `Host`. Browsers resolve `*.localhost` to `127.0.0.1` (no `/etc/hosts`). If `HTTP_PORT` is not 80, add `:<port>` to every URL (e.g. `http://wisski.localhost:3600`). `localhost` and `127.0.0.1` still serve the public site.
+
 | What | URL (defaults) |
 | --- | --- |
-| Site | http://localhost (`HTTP_PORT`) |
+| Site (Drupal in development, Varnish in production) | http://wisski.localhost (`SITE_HOST`) or http://localhost |
+| Drupal (bypass Varnish) | http://drupal.wisski.localhost (`DRUPAL_HOST`) |
+| OpenGDB / Django admin | http://gdb.wisski.localhost (`GDB_HOST`) |
+| pgAdmin | http://dbms.wisski.localhost (`PGADMIN_HOST`, profile `tools`) |
+| Solr (optional `solr` profile) | http://search.wisski.localhost (`SOLR_HOST`) |
 | Drupal login | `DRUPAL_USER` / `DRUPAL_PASSWORD` |
-| OpenGDB / Django admin | http://localhost:8080 (`PUBLIC_PORT`) |
-| pgAdmin | http://localhost:8081 (`PGADMIN_PORT`) |
-| Solr (optional `solr` profile) | http://localhost:8983 (`SOLR_PORT`) |
-| Drupal direct (production preset only) | http://127.0.0.1:8082 (`DRUPAL_DIRECT_PORT`) |
+
+Without `docker-compose.proxy.yml`, services keep the old host ports (`HTTP_PORT`, `PUBLIC_PORT`, `PGADMIN_PORT`, `SOLR_PORT`, production `DRUPAL_DIRECT_PORT`).
 
 OpenGDB login is `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`. On first install the Drupal entrypoint creates the `default` repository through OpenGDB (`POST /rest/repositories`) and fails if SPARQL does not return HTTP 200.
 
@@ -114,7 +119,7 @@ Drupal SPARQL talks to **authproxy**, not to the OpenGDB `nginx` service and not
 
 | Path | URL |
 | --- | --- |
-| Browser / Django admin | http://localhost:8080 (`PUBLIC_PORT`) → OpenGDB nginx → authproxy |
+| Browser / Django admin | http://gdb.wisski.localhost (`GDB_HOST`) → OpenGDB nginx → authproxy |
 | Drupal SPARQL (internal) | `http://authproxy:8000/repositories/default` |
 | Raw RDF4J (do not use from Drupal) | `http://rdf4j:8080/rdf4j-server/repositories/default` |
 
@@ -122,7 +127,7 @@ Hitting RDF4J directly skips OpenGDB login and repository ACLs. `nginx` in this 
 
 ### Django admin, users, and SPARQL tokens
 
-OpenGDB’s Django admin is [http://localhost:8080/admin](http://localhost:8080/admin) (`PUBLIC_PORT`). Log in with `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`.
+OpenGDB’s Django admin is [http://gdb.wisski.localhost/admin](http://gdb.wisski.localhost/admin) (`GDB_HOST`). Log in with `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`.
 
 By default Drupal SPARQL uses HTTP Basic with `TS_USERNAME` / `TS_PASSWORD` (same user as the Django superuser). OpenGDB also supports **token** auth, which avoids hashing the password on every SPARQL request. Use tokens over **HTTPS** in production ([OpenGDB note](https://github.com/FAU-CDI/open_gdb#token-authentication)).
 
@@ -130,7 +135,7 @@ By default Drupal SPARQL uses HTTP Basic with `TS_USERNAME` / `TS_PASSWORD` (sam
 2. **Get a token** (form fields, not JSON):
 
 ```bash
-curl -sS -X POST "http://localhost:8080/api-token-auth/" \
+curl -sS -X POST "http://gdb.wisski.localhost/api-token-auth/" \
   -d username=YOUR_USER -d password=YOUR_PASSWORD
 # {"token":"..."}
 ```
@@ -140,14 +145,15 @@ The same token is listed in Django admin under **Auth Token → Tokens**.
 3. **Fresh install.** Set `TS_TOKEN` in `.env` **before** the first `docker compose up`. The entrypoint then creates the WissKI SALZ adapter with token auth (`TS_USERNAME` / `TS_PASSWORD` can stay empty). Changing `TS_TOKEN` later does **not** rewrite an existing adapter.
 4. **Existing site.** Drupal → **Configuration → WissKI SALZ → Adapters** → Default (`/admin/config/wisski_salz/adapter/default/edit`) → enable token authentication, paste the token, save, then `docker compose exec drupal drush cr`.
 
-If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. On every boot the entrypoint rewrites the Default SALZ adapter read/write URLs from `TS_READ_URL` / `TS_WRITE_URL`; it does not rewrite the stored token or password. OpenGDB’s public UI (port 8080) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
+If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. On every boot the entrypoint rewrites the Default SALZ adapter read/write URLs from `TS_READ_URL` / `TS_WRITE_URL`; it does not rewrite the stored token or password. OpenGDB’s public UI (`GDB_HOST`) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
 
 ## Layout
 
 ```
 docker-compose.yml                      # default stack, include OpenGDB
-docker-compose.development.yml          # HTTP → Drupal, Xdebug
-docker-compose.production.yml           # HTTP → Varnish
+docker-compose.development.yml          # Drupal + Xdebug (Caddy is the public HTTP entry)
+docker-compose.production.yml           # Varnish as site upstream
+docker-compose.proxy.yml                # Caddy subdomains on HTTP_PORT (in presets)
 docker-compose.local-build.yml          # optional: build Drupal locally (append)
 docker-compose.apple-silicon.yml        # optional: amd64 via Rosetta (append)
 docker-compose.override.yml.example     # template for machine-local overlay
@@ -155,6 +161,7 @@ env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
 drupal/                                 # PHP 8.4 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
+config/caddy/Caddyfile                  # Caddy Host routes
 config/postgres/                        # Postgres init (pg_trgm)
 config/varnish/default.vcl              # Varnish (production profile)
 config/pgadmin/                         # pgAdmin servers.json (filled from DB_* on start)
@@ -168,14 +175,14 @@ drupal/config/                          # PHP, Nginx, Redis baked into the image
 
 | Preset | `COMPOSE_FILE` |
 | --- | --- |
-| Development | `docker-compose.yml:docker-compose.development.yml` |
-| Production | `docker-compose.yml:docker-compose.production.yml` |
+| Development | `docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml` |
+| Production | `docker-compose.yml:docker-compose.production.yml:docker-compose.proxy.yml` |
 
 Optional files are **not** in the presets. Append them in `.env` when needed, last file wins:
 
 ```bash
 # Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, currently 3.7.0 / 3.x)
-COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.local-build.yml
+COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml:docker-compose.local-build.yml
 
 # Then: docker compose build drupal
 # or:   docker compose up -d --build

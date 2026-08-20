@@ -1,4 +1,4 @@
-# Production: Varnish is the public HTTP entry. Drupal is localhost-only bypass.
+# Production: Varnish is the site upstream (Caddy is public HTTP when proxy overlay is loaded).
 # Loaded via COMPOSE_FILE in env/production.env. Requires COMPOSE_PROFILES=production.
 
 services:

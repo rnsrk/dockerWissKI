@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD)
 
+### Added
+- Optional Caddy overlay (`docker-compose.proxy.yml`) routes subdomains on `HTTP_PORT`: site (`wisski.localhost`), Drupal (`drupal.wisski.localhost`), OpenGDB (`gdb.wisski.localhost`), pgAdmin (`dbms.wisski.localhost`), Solr (`search.wisski.localhost`). `*.localhost` needs no `/etc/hosts`.
+
 ## [3.4.0](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0) - 2026-08-18
 
 ### Changed

@@ -1,4 +1,4 @@
-# Development: Drupal is the public HTTP entry. No Varnish.
+# Development: Drupal is the site upstream (Caddy is public HTTP when proxy overlay is loaded).
 # Loaded via COMPOSE_FILE in env/development.env.
 
 services:

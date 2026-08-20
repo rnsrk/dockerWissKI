@@ -1,0 +1,46 @@
+# Caddy is the public HTTP entry (Host-based subdomains).
+# Append to COMPOSE_FILE after development.yml or production.yml.
+# Last among stack overlays so it can drop per-service host ports.
+#
+# Local: *.wisski.localhost resolves to 127.0.0.1 (no /etc/hosts). Do not use
+# .local (mDNS). If HTTP_PORT is not 80, open http://wisski.localhost:<port>.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - drupal
+    ports:
+      - ${HTTP_PORT:-80}:80
+    environment:
+      SITE_HOST: ${SITE_HOST:-wisski.localhost}
+      SITE_UPSTREAM: ${SITE_UPSTREAM:-drupal:80}
+      DRUPAL_HOST: ${DRUPAL_HOST:-drupal.wisski.localhost}
+      GDB_HOST: ${GDB_HOST:-gdb.wisski.localhost}
+      PGADMIN_HOST: ${PGADMIN_HOST:-dbms.wisski.localhost}
+      SOLR_HOST: ${SOLR_HOST:-search.wisski.localhost}
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+  # Caddy owns HTTP_PORT. Keep Xdebug on loopback in development.
+  drupal:
+    ports: !override
+      - 127.0.0.1:${XDEBUG_PORT:-9003}:9003
+
+  varnish:
+    ports: !reset []
+
+  nginx:
+    ports: !reset []
+
+  pgadmin:
+    ports: !reset []
+
+  solr:
+    ports: !reset []
