@@ -176,7 +176,7 @@ services:
           memory: 512M
 
   varnish:
-    image: varnish:8
+    image: varnish:9
     profiles: [production]
     restart: unless-stopped
     depends_on:

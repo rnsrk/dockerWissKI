@@ -1,6 +1,6 @@
 # Docker WissKI
 
-Standalone WissKI stack with a PHP 8.5 FPM Drupal image, PostgreSQL 17, [OpenGDB](https://github.com/FAU-CDI/open_gdb) (RDF4J 6), Redis 8, Varnish 8, Caddy, and pgAdmin. Solr 10 and the [WissKI Data Importer](https://gitlab.nasarek.dev/rnsrk/wisski_data_importer) UI are optional.
+Standalone WissKI stack with a PHP 8.5 FPM Drupal image, PostgreSQL 17, [OpenGDB](https://github.com/FAU-CDI/open_gdb) (RDF4J 6), Redis 8, Varnish 9, Caddy, and pgAdmin. Solr 10 and the [WissKI Data Importer](https://gitlab.nasarek.dev/rnsrk/wisski_data_importer) UI are optional.
 
 This repository builds and publishes its own images. It does not depend on the SODA SCS stack.
 

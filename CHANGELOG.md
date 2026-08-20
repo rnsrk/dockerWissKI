@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/4.0.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.0...HEAD)
+
+## [5.0.0](https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0) - 2026-08-20
+
+### Breaking Changes
+- Varnish is `varnish:9` (was 8). Cache is tmpfs; recreate the production profile service. VCL 4.1 is unchanged.
 
 ## [4.0.0](https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0) - 2026-08-20
 
@@ -238,7 +243,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...HEAD
+[5.0.0]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0
 [4.0.0]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0
 [3.5.0]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0
 [3.4.0]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0
