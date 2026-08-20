@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.5.0...HEAD)
+
+## [3.5.0](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0) - 2026-08-20
 
 ### Added
 - Optional Caddy overlay (`docker-compose.proxy.yml`) routes subdomains on `HTTP_PORT`: site (`wisski.localhost`), Drupal (`drupal.wisski.localhost`), OpenGDB (`gdb.wisski.localhost`), pgAdmin (`dbms.wisski.localhost`), Solr (`search.wisski.localhost`), data importer (`import.wisski.localhost`). `*.localhost` needs no `/etc/hosts`.
@@ -223,7 +225,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...HEAD
+[3.5.0]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0
 [3.4.0]: https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0
 [3.3.0]: https://github.com/rnsrk/dockerWissKI/compare/3.2.0...3.3.0
 [3.2.0]: https://github.com/rnsrk/dockerWissKI/compare/3.1.0...3.2.0
