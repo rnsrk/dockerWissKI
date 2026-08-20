@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.0...HEAD)
 
+### Changed
+- WissKI Data Importer submodule remote is `git.nasarek.dev` (was `gitlab.nasarek.dev`); pointer updated to the deployment-agnostic importer tip.
+
 ## [5.0.0](https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0) - 2026-08-20
 
 ### Breaking Changes

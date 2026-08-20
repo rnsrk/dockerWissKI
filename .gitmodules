@@ -3,4 +3,4 @@
 	url = https://github.com/FAU-CDI/open_gdb.git
 [submodule "wisski_data_importer"]
 	path = wisski_data_importer
-	url = ssh://git@gitlab.nasarek.dev:2424/rnsrk/wisski_data_importer.git
+	url = ssh://git@git.nasarek.dev:2424/rnsrk/wisski_data_importer.git
