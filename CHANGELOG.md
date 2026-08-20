@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.1...HEAD)
+
+## [5.0.1](https://github.com/rnsrk/dockerWissKI/compare/5.0.0...5.0.1) - 2026-08-20
 
 ### Changed
 - WissKI Data Importer submodule remote is `git.nasarek.dev` (was `gitlab.nasarek.dev`); pointer updated to the deployment-agnostic importer tip.
@@ -246,7 +248,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/5.0.1...HEAD
+[5.0.1]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...5.0.1
 [5.0.0]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0
 [4.0.0]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0
 [3.5.0]: https://github.com/rnsrk/dockerWissKI/compare/3.4.0...3.5.0
