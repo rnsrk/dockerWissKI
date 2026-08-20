@@ -1,7 +1,7 @@
 # Default stack. Environment is docker-compose.development.yml or
 # docker-compose.production.yml via COMPOSE_FILE in .env.
-# Optional overlays: docker-compose.proxy.yml, docker-compose.local-build.yml,
-# docker-compose.apple-silicon.yml,
+# Optional overlays: docker-compose.proxy.yml, docker-compose.importer.yml,
+# docker-compose.local-build.yml, docker-compose.apple-silicon.yml,
 # docker-compose.override.yml (gitignored).
 
 name: dockerwisski

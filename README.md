@@ -1,6 +1,6 @@
 # Docker WissKI
 
-Standalone WissKI stack with a PHP-FPM Drupal image, PostgreSQL 16, [OpenGDB](https://github.com/FAU-CDI/open_gdb), Redis, Varnish, Caddy, and pgAdmin. Solr is optional.
+Standalone WissKI stack with a PHP-FPM Drupal image, PostgreSQL 16, [OpenGDB](https://github.com/FAU-CDI/open_gdb), Redis, Varnish, Caddy, and pgAdmin. Solr and the [WissKI Data Importer](https://gitlab.nasarek.dev/rnsrk/wisski_data_importer) UI are optional.
 
 This repository builds and publishes its own images. It does not depend on the SODA SCS stack.
 
@@ -61,7 +61,7 @@ IEF subentity forms and SALZ adapters spend most of their time in SPARQL, not Dr
 
 Development enables OPcache with timestamp checks so bind-mounted WissKI still live-reloads. Xdebug stays in trigger mode; set `XDEBUG_MODE=off` in `.env` (and recreate Drupal) if you are not debugging — the extension still costs CPU while `mode=debug`.
 
-Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
+Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. WissKI Data Importer UI: append `docker-compose.importer.yml` (before `docker-compose.proxy.yml`) and `git submodule update --init wisski_data_importer`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
 ### Attach Cursor / VS Code into Drupal
 
@@ -109,6 +109,7 @@ Caddy listens on `HTTP_PORT` (default 80) and routes by `Host`. Browsers resolve
 | OpenGDB / Django admin | http://gdb.wisski.localhost (`GDB_HOST`) |
 | pgAdmin | http://dbms.wisski.localhost (`PGADMIN_HOST`, profile `tools`) |
 | Solr (optional `solr` profile) | http://search.wisski.localhost (`SOLR_HOST`) |
+| Data importer (optional `docker-compose.importer.yml`) | http://import.wisski.localhost (`IMPORTER_HOST`) |
 | Drupal login | `DRUPAL_USER` / `DRUPAL_PASSWORD` |
 
 Without `docker-compose.proxy.yml`, services keep the old host ports (`HTTP_PORT`, `PUBLIC_PORT`, `PGADMIN_PORT`, `SOLR_PORT`, production `DRUPAL_DIRECT_PORT`).
@@ -154,6 +155,7 @@ docker-compose.yml                      # default stack, include OpenGDB
 docker-compose.development.yml          # Drupal + Xdebug (Caddy is the public HTTP entry)
 docker-compose.production.yml           # Varnish as site upstream
 docker-compose.proxy.yml                # Caddy subdomains on HTTP_PORT (in presets)
+docker-compose.importer.yml             # optional: WissKI Data Importer UI (append)
 docker-compose.local-build.yml          # optional: build Drupal locally (append)
 docker-compose.apple-silicon.yml        # optional: amd64 via Rosetta (append)
 docker-compose.override.yml.example     # template for machine-local overlay
@@ -161,6 +163,7 @@ env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
 drupal/                                 # PHP 8.4 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
+wisski_data_importer/                   # git submodule (optional importer UI)
 config/caddy/Caddyfile                  # Caddy Host routes
 config/postgres/                        # Postgres init (pg_trgm)
 config/varnish/default.vcl              # Varnish (production profile)
@@ -184,6 +187,9 @@ Optional files are **not** in the presets. Append them in `.env` when needed, la
 # Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, currently 3.7.0 / 3.x)
 COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml:docker-compose.local-build.yml
 
+# WissKI Data Importer UI (init submodule first)
+COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.importer.yml:docker-compose.proxy.yml
+
 # Then: docker compose build drupal
 # or:   docker compose up -d --build
 ```
@@ -199,6 +205,26 @@ git submodule update --remote opengdb
 ```
 
 Pin the new submodule commit in this repository when it works.
+
+## WissKI Data Importer
+
+Optional UI for CSV → Pathbuilder → WissKI import. It is a **separate app** (own Postgres and Redis), not a Drupal module.
+
+```bash
+git submodule update --init wisski_data_importer
+# Append docker-compose.importer.yml to COMPOSE_FILE (before docker-compose.proxy.yml)
+# Set WISSKI_DATA_IMPORTER_AUTH_* and WISSKI_DATA_IMPORTER_DJANGO_SECRET_KEY in .env
+docker compose up -d --build wisski-data-importer-web wisski-data-importer-postgres wisski-data-importer-redis
+```
+
+Open http://import.wisski.localhost (`IMPORTER_HOST`). After login, in **Settings** use Docker DNS:
+
+| Setting | URL |
+| --- | --- |
+| WissKI API | `http://drupal` |
+| SPARQL | `http://authproxy:8000/repositories/default` |
+
+If `HTTP_PORT` is not 80, add that port to `WISSKI_DATA_IMPORTER_CSRF_TRUSTED_ORIGINS` (e.g. `http://import.wisski.localhost:3600`).
 
 ## Extra modules, libraries, and custom code
 

@@ -53,6 +53,20 @@
 		reverse_proxy solr:8983
 	}
 
+	@importer host {$IMPORTER_HOST:import.wisski.localhost}
+	handle @importer {
+		request_body {
+			max_size 512MB
+		}
+		reverse_proxy wisski-data-importer-web:8000 {
+			transport http {
+				dial_timeout 10s
+				read_timeout 600s
+				write_timeout 600s
+			}
+		}
+	}
+
 	handle {
 		respond "Unknown host" 404
 	}

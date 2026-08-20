@@ -1,0 +1,78 @@
+# WissKI Data Importer UI (submodule wisski_data_importer).
+# Append to COMPOSE_FILE, then git submodule update --init wisski_data_importer.
+#
+# Own Postgres and Redis — do not merge the importer's docker-compose.yml
+# (it also names a service postgres). Same Compose project so the UI can reach
+# drupal and authproxy by service name. Caddy serves IMPORTER_HOST when the
+# proxy overlay is loaded.
+
+services:
+  wisski-data-importer-web:
+    build:
+      context: ./wisski_data_importer
+      dockerfile: Dockerfile
+      args:
+        APP_BASE_PATH: /
+        WISSKI_DATA_IMPORTER_PG_HOST: wisski-data-importer-postgres
+        WISSKI_DATA_IMPORTER_PG_APP_DATABASE: ${WISSKI_DATA_IMPORTER_PG_APP_DATABASE:-app_config}
+        WISSKI_DATA_IMPORTER_PG_STAGING_DATABASE: ${WISSKI_DATA_IMPORTER_PG_STAGING_DATABASE:-staging_data}
+        WISSKI_DATA_IMPORTER_PG_USER: ${WISSKI_DATA_IMPORTER_PG_USER:-wisski_data_importer}
+        WISSKI_DATA_IMPORTER_PG_PASSWORD: ${WISSKI_DATA_IMPORTER_PG_PASSWORD:-wisski-data-importer}
+    image: wisski-data-importer-web:latest
+    restart: unless-stopped
+    depends_on:
+      wisski-data-importer-postgres:
+        condition: service_healthy
+      wisski-data-importer-redis:
+        condition: service_healthy
+    environment:
+      FORCE_SCRIPT_NAME: ""
+      DJANGO_SECRET_KEY: ${WISSKI_DATA_IMPORTER_DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_SESSION_COOKIE_SECURE: ${WISSKI_DATA_IMPORTER_SESSION_COOKIE_SECURE:-0}
+      DJANGO_ALLOWED_HOSTS: ${IMPORTER_HOST:-import.wisski.localhost},wisski-data-importer-web,localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${WISSKI_DATA_IMPORTER_CSRF_TRUSTED_ORIGINS:-http://import.wisski.localhost}
+      WISSKI_DATA_IMPORTER_AUTH_USER: ${WISSKI_DATA_IMPORTER_AUTH_USER:-}
+      WISSKI_DATA_IMPORTER_AUTH_PASSWORD: ${WISSKI_DATA_IMPORTER_AUTH_PASSWORD:-}
+      WISSKI_DATA_IMPORTER_UPLOAD_DIR: /app/wisski-data-importer-data/uploads
+      WISSKI_DATA_IMPORTER_REDIS_URL: redis://wisski-data-importer-redis:6379/0
+      WISSKI_DATA_IMPORTER_PG_HOST: wisski-data-importer-postgres
+      WISSKI_DATA_IMPORTER_PG_PORT: "5432"
+      WISSKI_DATA_IMPORTER_PG_APP_DATABASE: ${WISSKI_DATA_IMPORTER_PG_APP_DATABASE:-app_config}
+      WISSKI_DATA_IMPORTER_PG_STAGING_DATABASE: ${WISSKI_DATA_IMPORTER_PG_STAGING_DATABASE:-staging_data}
+      WISSKI_DATA_IMPORTER_PG_USER: ${WISSKI_DATA_IMPORTER_PG_USER:-wisski_data_importer}
+      WISSKI_DATA_IMPORTER_PG_PASSWORD: ${WISSKI_DATA_IMPORTER_PG_PASSWORD:-wisski-data-importer}
+    volumes:
+      - wisski-data-importer-data:/app/wisski-data-importer-data
+    ports:
+      - ${WISSKI_DATA_IMPORTER_PORT:-8000}:8000
+
+  wisski-data-importer-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${WISSKI_DATA_IMPORTER_PG_APP_DATABASE:-app_config}
+      POSTGRES_USER: ${WISSKI_DATA_IMPORTER_PG_USER:-wisski_data_importer}
+      POSTGRES_PASSWORD: ${WISSKI_DATA_IMPORTER_PG_PASSWORD:-wisski-data-importer}
+    volumes:
+      - wisski-data-importer-postgres:/var/lib/postgresql/data
+      - ./wisski_data_importer/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  wisski-data-importer-redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 64mb --maxmemory-policy noeviction --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  wisski-data-importer-data:
+  wisski-data-importer-postgres:

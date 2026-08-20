@@ -20,6 +20,7 @@ services:
       GDB_HOST: ${GDB_HOST:-gdb.wisski.localhost}
       PGADMIN_HOST: ${PGADMIN_HOST:-dbms.wisski.localhost}
       SOLR_HOST: ${SOLR_HOST:-search.wisski.localhost}
+      IMPORTER_HOST: ${IMPORTER_HOST:-import.wisski.localhost}
     volumes:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
     deploy:

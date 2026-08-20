@@ -3,7 +3,8 @@
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/3.4.0...HEAD)
 
 ### Added
-- Optional Caddy overlay (`docker-compose.proxy.yml`) routes subdomains on `HTTP_PORT`: site (`wisski.localhost`), Drupal (`drupal.wisski.localhost`), OpenGDB (`gdb.wisski.localhost`), pgAdmin (`dbms.wisski.localhost`), Solr (`search.wisski.localhost`). `*.localhost` needs no `/etc/hosts`.
+- Optional Caddy overlay (`docker-compose.proxy.yml`) routes subdomains on `HTTP_PORT`: site (`wisski.localhost`), Drupal (`drupal.wisski.localhost`), OpenGDB (`gdb.wisski.localhost`), pgAdmin (`dbms.wisski.localhost`), Solr (`search.wisski.localhost`), data importer (`import.wisski.localhost`). `*.localhost` needs no `/etc/hosts`.
+- Optional WissKI Data Importer overlay (`docker-compose.importer.yml`) plus git submodule `wisski_data_importer`. Own Postgres/Redis (not the WissKI `postgres` service). Append to `COMPOSE_FILE` and `git submodule update --init wisski_data_importer`.
 
 ## [3.4.0](https://github.com/rnsrk/dockerWissKI/compare/3.3.0...3.4.0) - 2026-08-18
 
