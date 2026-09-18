@@ -11,6 +11,8 @@ services:
     build:
       context: ./wisski_data_importer
       dockerfile: Dockerfile
+      additional_contexts:
+        wisski_py: ${WISSKI_PY_CONTEXT:-https://github.com/kaiamann/wisski_py.git#main}
       args:
         APP_BASE_PATH: /
         WISSKI_DATA_IMPORTER_PG_HOST: wisski-data-importer-postgres
