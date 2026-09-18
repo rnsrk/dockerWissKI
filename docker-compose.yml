@@ -210,7 +210,7 @@ services:
 
   # Overlay OpenGDB rdf4j: pin RDF4J 6 (Tomcat), fix volume UID, cap heap, wait until the protocol is up.
   rdf4j:
-    image: eclipse/rdf4j-workbench:6.0.0
+    image: eclipse/rdf4j-workbench:6.1.0-tomcat
     user: "0:0"
     environment:
       JAVA_OPTS: -Xms${RDF4J_HEAP_MIN:-256m} -Xmx${RDF4J_HEAP_MAX:-1g} -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
