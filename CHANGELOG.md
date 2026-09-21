@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.1...HEAD)
 
+### Changed
+- Drupal image WissKI package args default to `WISSKI_PACKAGES_VERSION=4.0.0` / `WISSKI_PACKAGES_LINE=4.x` (was 3.7.0 / 3.x). Rebuild the Drupal image to pick this up.
+
 ### Fixed
 - Development entrypoint restores group-write + setgid under `/opt/drupal` after volume mounts, install lockdown, and Composer extras, so `developer` (in `www-data`) can edit `web/sites` and newly installed packages. `sites/default` stays 775 in development (settings files remain 444). `docker-compose.development.yml` bind-mounts `entrypoint.sh` and `set-permissions.sh` so this applies without a GHCR rebuild.
 
