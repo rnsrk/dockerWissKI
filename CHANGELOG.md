@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/5.0.1...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...HEAD)
+
+## [6.0.0](https://github.com/rnsrk/dockerWissKI/compare/5.0.2...6.0.0) - 2026-09-21
 
 ### Changed
 - Drupal image WissKI package args default to `WISSKI_PACKAGES_VERSION=4.0.0` / `WISSKI_PACKAGES_LINE=4.x` (was 3.7.0 / 3.x). Rebuild the Drupal image to pick this up.
@@ -254,7 +256,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/5.0.1...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.0.0...HEAD
+[6.0.0]: https://github.com/rnsrk/dockerWissKI/compare/5.0.2...6.0.0
 [5.0.1]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...5.0.1
 [5.0.0]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0
 [4.0.0]: https://github.com/rnsrk/dockerWissKI/compare/3.5.0...4.0.0
