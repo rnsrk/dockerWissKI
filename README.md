@@ -63,6 +63,16 @@ Development enables OPcache with timestamp checks so bind-mounted WissKI still l
 
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. WissKI Data Importer UI: append `docker-compose.importer.yml` (before `docker-compose.proxy.yml`) and `git submodule update --init wisski_data_importer`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
+### Shell as developer
+
+```bash
+docker compose exec -u developer drupal bash
+```
+
+Omit `-u developer` to run as root. PHP-FPM stays `www-data`.
+
+In development, `/opt/drupal` stays `www-data`-owned with group-write + setgid so `developer` (in `www-data`) can edit the tree. `settings.php` stays read-only (444); `sites/default` itself is writable (775) so you can add `settings.local.php`. Production still locks `sites/default` to 555.
+
 ### Attach Cursor / VS Code into Drupal
 
 For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.

@@ -39,7 +39,14 @@ fi
 
 # Lock down the generated settings files and sites/default directory.
 # These are created at install time (by root), so fix ownership before mode.
-echo -e "\033[0;33m1. Locking down critical configuration files (444) and sites/default (555)...\033[0m"
+# Development keeps sites/default group-writable (775) so `developer` (in
+# www-data) can add settings.local.php / similar; settings.php stays 444.
+if [ "${MODE}" = "development" ]; then
+  SITES_DEFAULT_MODE="775"
+else
+  SITES_DEFAULT_MODE="555"
+fi
+echo -e "\033[0;33m1. Locking down critical configuration files (444) and sites/default (${SITES_DEFAULT_MODE})...\033[0m"
 if [ -d "${WEB_ROOT}/sites/default" ]; then
   chown ${WEB_USER}:${WEB_GROUP} "${WEB_ROOT}/sites/default"
   for file in settings.php services.yml settings.local.php; do
@@ -49,8 +56,8 @@ if [ -d "${WEB_ROOT}/sites/default" ]; then
       echo -e "   - ${file}: 444 (read-only)"
     fi
   done
-  chmod 555 "${WEB_ROOT}/sites/default"
-  echo -e "   - sites/default: 555 (read-only)"
+  chmod "${SITES_DEFAULT_MODE}" "${WEB_ROOT}/sites/default"
+  echo -e "   - sites/default: ${SITES_DEFAULT_MODE}"
 fi
 
 # Make the public files directory writable.

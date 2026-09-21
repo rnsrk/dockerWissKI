@@ -202,6 +202,32 @@ chown www-data:www-data /opt/drupal/web/sites /opt/drupal/private-files 2>/dev/n
 mkdir -p "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
 chown www-data:www-data "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
 
+# Development: `developer` is in www-data and edits via group write + setgid.
+# Named volumes (sites) and composer-installed packages often land as 755/644
+# without g+w; restore the bake-time layout. Ignore EROFS on optional :ro binds.
+ensure_dev_group_write() {
+  if [ "${MODE}" != "development" ] || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
+  echo -e "\033[0;33mENSURING GROUP-WRITE FOR developer UNDER /opt/drupal...\033[0m"
+  chmod -R g+w /opt/drupal 2>/dev/null || true
+  find /opt/drupal -type d -exec chmod g+s {} + 2>/dev/null || true
+  find /opt/drupal/web -name .htaccess -exec chmod 444 {} + 2>/dev/null || true
+  if [ -f /opt/drupal/web/robots.txt ]; then
+    chmod 444 /opt/drupal/web/robots.txt 2>/dev/null || true
+  fi
+  if [ -d /opt/drupal/web/sites/default ]; then
+    chmod 775 /opt/drupal/web/sites/default 2>/dev/null || true
+    for file in settings.php services.yml settings.local.php; do
+      if [ -f "/opt/drupal/web/sites/default/${file}" ]; then
+        chmod 444 "/opt/drupal/web/sites/default/${file}" 2>/dev/null || true
+      fi
+    done
+  fi
+}
+
+ensure_dev_group_write
+
 # Composer cache must stay writable by www-data (docker exec package checks).
 mkdir -p "${COMPOSER_HOME}/cache"
 if [ "$(stat -c '%U' "${COMPOSER_HOME}" 2>/dev/null || true)" != "www-data" ]; then
@@ -598,6 +624,7 @@ EOF
   # Set secure permissions following Drupal security guidelines.
   echo -e "\033[0;33mSET SECURE PERMISSIONS.\033[0m"
   /usr/local/bin/set-permissions.sh
+  ensure_dev_group_write
   echo -e "\033[0;32mSECURE PERMISSIONS SET.\033[0m\n"
 
   # Record the package set version the site was installed with.
@@ -617,6 +644,8 @@ sync_salz_adapter_urls
 echo -e "\033[0;33mAPPLYING SITE COMPOSER PACKAGES...\033[0m"
 if su -s /bin/bash www-data -c 'export COMPOSER_HOME=/var/composer-home; /usr/local/bin/apply-composer-local.sh'; then
   echo -e "\033[0;32mSITE COMPOSER PACKAGES APPLIED.\033[0m\n"
+  # Fresh composer installs drop group-write; restore for developer.
+  ensure_dev_group_write
 else
   echo -e "\033[0;31mERROR: Failed to apply web/sites/composer.local.json onto this image.\033[0m"
   echo -e "\033[0;31mFix the extra package constraints or wait for a compatible image, then recreate the container.\033[0m"

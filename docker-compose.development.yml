@@ -13,6 +13,10 @@ services:
       # OPcache on with mtime checks so bind-mounted WissKI still live-reloads.
       # Overrides the published image's opcache.enable=0 without a rebuild.
       - ./drupal/config/opcache/zz-opcache-recommended-dev.ini:/usr/local/etc/php/conf.d/zzz-opcache-runtime.ini:ro
+      # Entrypoint / permissions from the repo so developer group-write fixes
+      # apply without waiting for a GHCR rebuild.
+      - ./drupal/entrypoint.sh:/entrypoint.sh:ro
+      - ./drupal/config/drupal/set-permissions.sh:/usr/local/bin/set-permissions.sh:ro
     labels:
       # Attach Cursor/VS Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'
