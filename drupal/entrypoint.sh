@@ -78,12 +78,22 @@ if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
       ;;
   esac
   chown developer:developer /home/developer
-  # Named IDE volumes start as root. Ignore EROFS on optional :ro file binds
-  # (Machine settings.json).
-  for dir in /home/developer/.cursor-server /home/developer/.vscode-server /home/developer/.cursor; do
-    mkdir -p "${dir}"
-    chown -R developer:developer "${dir}" || true
-  done
+  # Named IDE volumes start as root. Do not recurse into :ro binds (Machine
+  # settings.json, cursor rules/skills) — those are the same filesystem as the
+  # volume, so find -xdev would still try chown and spam EROFS.
+  chown_developer_volume() {
+    local root="$1"
+    mkdir -p "${root}"
+    chown developer:developer "${root}" 2>/dev/null || true
+    find "${root}" \( \
+      -path "${root}/rules" -o \
+      -path "${root}/skills" -o \
+      -path "${root}/data/Machine/settings.json" \
+    \) -prune -o -exec chown developer:developer {} + 2>/dev/null || true
+  }
+  chown_developer_volume /home/developer/.cursor-server
+  chown_developer_volume /home/developer/.vscode-server
+  chown_developer_volume /home/developer/.cursor
 fi
 
 # Validate required environment variables.
@@ -108,14 +118,10 @@ REQUIRED_VARS=(
   "TS_REPOSITORY"
   "TS_READ_URL"
   "TS_WRITE_URL"
+  "TS_USERNAME"
+  "TS_PASSWORD"
   "WISSKI_DEFAULT_GRAPH"
 )
-
-# Triplestore authentication: either TS_TOKEN or TS_USERNAME and TS_PASSWORD must be set.
-if [ -z "${TS_TOKEN}" ] && { [ -z "${TS_USERNAME}" ] || [ -z "${TS_PASSWORD}" ]; }; then
-  echo -e "\033[0;31mERROR: Triplestore credentials missing: set either TS_TOKEN or both TS_USERNAME and TS_PASSWORD.\033[0m"
-  exit 1
-fi
 
 # Recipe versions are baked into the image. WISSKI_STARTER_VERSION and
 # WISSKI_DEFAULT_DATA_MODEL_VERSION are optional flags (non-empty = apply).
@@ -185,6 +191,66 @@ sync_salz_adapter_urls() {
   fi
 }
 
+# OpenGDB does not create repositories at its own start. Drupal POSTs
+# /rest/repositories (Django row + RDF4J store) and waits until SPARQL ASK
+# returns HTTP 200. Auth is HTTP Basic: TS_USERNAME / TS_PASSWORD (same as
+# the OpenGDB superuser). Do not put SPARQL tokens in .env.
+ensure_default_triplestore() {
+  local ts_auth=(-u "${TS_USERNAME}:${TS_PASSWORD}")
+  local ts_base ts_rest ts_body
+  local attempt=0 max_attempts=45
+  local post_code ask_code
+
+  ts_base="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
+  ts_rest="${ts_base}/rest/repositories"
+
+  ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
+    --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
+  if [ "${ask_code}" = "200" ]; then
+    echo -e "\033[0;32mDEFAULT TRIPLESTORE REPOSITORY READY.\033[0m\n"
+    return 0
+  fi
+
+  echo -e "\033[0;33mENSURING DEFAULT TRIPLESTORE REPOSITORY (${TS_REPOSITORY} via ${ts_rest})...\033[0m"
+  ts_body="$(mktemp)"
+  while [ "${attempt}" -lt "${max_attempts}" ]; do
+    post_code="$(curl -sS -o "${ts_body}" -w '%{http_code}' -X POST "${ts_rest}" "${ts_auth[@]}" \
+      -H 'Content-Type: application/json' \
+      --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
+    ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
+      --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
+    echo -e "\033[0;33mOpenGDB: POST ${ts_rest} -> HTTP ${post_code:-000}; SPARQL ASK -> HTTP ${ask_code:-000} (attempt $((attempt + 1))/${max_attempts})\033[0m"
+    if [ "${ask_code}" = "200" ]; then
+      rm -f "${ts_body}"
+      echo -e "\033[0;32mDEFAULT TRIPLESTORE REPOSITORY READY.\033[0m\n"
+      return 0
+    fi
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+
+  echo -e "\033[0;31mERROR: SPARQL ASK at ${TS_READ_URL} did not return HTTP 200.\033[0m"
+  echo -e "\033[0;31mLast POST ${ts_rest} body:\033[0m"
+  cat "${ts_body}" 2>/dev/null || true
+  rm -f "${ts_body}"
+  return 1
+}
+
+# key_value_expire is created lazily on write. update_storage_clear() DELETEs
+# it from hook_modules_installed. Postgres logs ERROR even though Drupal
+# swallows the missing-table exception.
+ensure_key_value_expire() {
+  if [ ! -f "${SETTINGS_FILE}" ]; then
+    return 0
+  fi
+  drush php-eval '
+    $schema = \Drupal::database()->schema();
+    if (!$schema->tableExists("key_value_expire")) {
+      $schema->createTable("key_value_expire", \Drupal\Core\KeyValueStore\DatabaseStorageExpirable::schemaDefinition());
+    }
+  ' >/dev/null
+}
+
 if [ "${MODE}" = "development" ]; then
   echo -e "\033[0;33mENVIRONMENT VARIABLES:\033[0m"
   env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG' || true
@@ -228,17 +294,19 @@ ensure_dev_group_write() {
 
 ensure_dev_group_write
 
-# Composer cache must stay writable by www-data (docker exec package checks).
+# Composer cache must stay writable by www-data. `developer` (UID 1000) also
+# writes here; a top-level owner check missed nested 1000:1000 files and
+# `composer require` as www-data then died with Permission denied (502 behind Caddy).
 mkdir -p "${COMPOSER_HOME}/cache"
-if [ "$(stat -c '%U' "${COMPOSER_HOME}" 2>/dev/null || true)" != "www-data" ]; then
-  chown -R www-data:www-data "${COMPOSER_HOME}"
-  chmod -R 775 "${COMPOSER_HOME}"
-fi
+chown -R www-data:www-data "${COMPOSER_HOME}"
+chmod -R 775 "${COMPOSER_HOME}"
+find "${COMPOSER_HOME}" -type d -exec chmod g+s {} + 2>/dev/null || true
 
 # Check if Drupal is already installed.
 echo -e "\033[0;33mCHECKING IF DRUPAL IS ALREADY INSTALLED.\033[0m"
 if [ -f "$INSTALL_COMPLETE_FILE" ]; then
   echo -e "\033[0;32mDRUPAL IS ALREADY INSTALLED.\033[0m\n"
+  ensure_key_value_expire
 
   # Run database updates when the image ships a newer package set than the
   # one the site was installed or last updated with.
@@ -252,6 +320,7 @@ if [ -f "$INSTALL_COMPLETE_FILE" ]; then
     echo -e "\033[0;32mDATABASE UPDATES APPLIED.\033[0m\n"
   fi
 
+  ensure_default_triplestore || exit 1
   /usr/local/bin/sync-reverse-proxy.sh
 
 elif [ -f "$INSTALL_IN_PROGRESS_FILE" ]; then
@@ -264,6 +333,7 @@ elif [ -f "$SETTINGS_FILE" ]; then
   # Legacy installation created before marker files were introduced.
   echo -e "\033[0;32mDRUPAL IS ALREADY INSTALLED (LEGACY INSTALLATION DETECTED; CREATING MARKER FILE).\033[0m\n"
   touch "$INSTALL_COMPLETE_FILE"
+  ensure_default_triplestore || exit 1
   /usr/local/bin/sync-reverse-proxy.sh
 
 else
@@ -298,6 +368,13 @@ else
     exit 1
   fi
 
+  # Create OpenGDB `default` before recipes/SPARQL. Authproxy is already healthy.
+  # If this fails, drop the in-progress marker so the next start can retry site-install.
+  if ! ensure_default_triplestore; then
+    rm -f "$INSTALL_IN_PROGRESS_FILE"
+    exit 1
+  fi
+
   # Install the site with timeout.
   echo -e "\033[0;33mINSTALLING DRUPAL SITE...\033[0m"
 
@@ -309,6 +386,7 @@ else
     --locale="${DRUPAL_LOCALE}" \
     --yes 2>&1; then
     echo -e "\033[0;32mDRUPAL SITE \"${DRUPAL_SITE_NAME}\" INSTALLED.\033[0m\n"
+    ensure_key_value_expire
   else
     echo -e "\033[0;31mERROR: Drupal installation failed or timed out after 5 minutes.\033[0m"
     echo -e "\033[0;31mCheck database connection and credentials.\033[0m"
@@ -413,74 +491,8 @@ EOF
     echo -e "\033[0;33mWISSKI STARTER RECIPE SKIPPED\033[0m\n"
   fi
   if [ -n "${WISSKI_DEFAULT_DATA_MODEL_VERSION}" ]; then
-    echo -e "\033[0;33mENSURING DEFAULT TRIPLESTORE REPOSITORY...\033[0m"
-    TS_CURL_AUTH=()
-    if [ -n "${TS_TOKEN}" ]; then
-      TS_CURL_AUTH=(-H "Authorization: Token ${TS_TOKEN}")
-    elif [ -n "${TS_USERNAME}" ] && [ -n "${TS_PASSWORD}" ]; then
-      TS_CURL_AUTH=(-u "${TS_USERNAME}:${TS_PASSWORD}")
-    fi
-    TS_BASE="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
-    TS_REST_URL="${TS_BASE}/rest/repositories"
-    TS_PUT_BODY="$(mktemp)"
-
-    TS_ATTEMPT=0
-    TS_READY=false
-    while [ $TS_ATTEMPT -lt 30 ] && [ "$TS_READY" = false ]; do
-      # OpenGDB tracks repositories in Django; POST /rest/repositories creates that
-      # row and then PUTs the RDF4J store. A raw PUT to /repositories/{id} leaves
-      # SPARQL 404 even when RDF4J already has the store.
-      code="$(curl -sS -o "${TS_PUT_BODY}" -w '%{http_code}' -X POST "${TS_REST_URL}" "${TS_CURL_AUTH[@]}" \
-        -H 'Content-Type: application/json' \
-        --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
-      case "${code}" in
-        200|201|204|400)
-          TS_READY=true
-          ;;
-        *)
-          echo -e "\033[0;33mWaiting for triplestore repository (HTTP ${code:-000})... (attempt $((TS_ATTEMPT + 1))/30)\033[0m"
-          sleep 2
-          TS_ATTEMPT=$((TS_ATTEMPT + 1))
-          ;;
-      esac
-    done
-    if [ "$TS_READY" = false ]; then
-      echo -e "\033[0;31mERROR: Could not create or confirm triplestore repository ${TS_REST_URL}.\033[0m"
-      cat "${TS_PUT_BODY}" 2>/dev/null || true
-      rm -f "${TS_PUT_BODY}"
-      exit 1
-    fi
-    rm -f "${TS_PUT_BODY}"
-
-    TS_ATTEMPT=0
-    TS_QUERY_READY=false
-    while [ $TS_ATTEMPT -lt 15 ] && [ "$TS_QUERY_READY" = false ]; do
-      code="$(curl -sS -o /dev/null -w '%{http_code}' "${TS_CURL_AUTH[@]}" \
-        --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
-      if [ "${code}" = "200" ]; then
-        TS_QUERY_READY=true
-      else
-        echo -e "\033[0;33mWaiting for SPARQL endpoint (HTTP ${code:-000})... (attempt $((TS_ATTEMPT + 1))/15)\033[0m"
-        sleep 2
-        TS_ATTEMPT=$((TS_ATTEMPT + 1))
-      fi
-    done
-    if [ "$TS_QUERY_READY" = false ]; then
-      echo -e "\033[0;31mERROR: SPARQL endpoint at ${TS_READ_URL} did not return HTTP 200.\033[0m"
-      echo -e "\033[0;31mIf RDF4J already has a leftover '${TS_REPOSITORY}' store, remove the rdf4j-data volume and recreate the stack.\033[0m"
-      exit 1
-    fi
-    echo -e "\033[0;32mDEFAULT REPOSITORY READY.\033[0m\n"
-
     echo -e "\033[0;33mINSTALL DEFAULT TRIPLESTORE ADAPTER.\033[0m"
-      # Use token authentication when TS_TOKEN is set; otherwise username and password.
-      TS_AUTH_ARGS=()
-      if [ -n "${TS_TOKEN}" ]; then
-        TS_AUTH_ARGS+=(--ts_use_token=1 --ts_token="${TS_TOKEN}")
-      else
-        TS_AUTH_ARGS+=(--ts_use_token=0 --ts_user="${TS_USERNAME}" --ts_password="${TS_PASSWORD}")
-      fi
-      drush wisski-salz:create-adapter --type='sparql11_with_pb' --adapter_label='Default' --adapter_machine_name='default' --description='Default SALZ adapter' --ts_machine_name="${TS_REPOSITORY}" "${TS_AUTH_ARGS[@]}" --writable=1 --preferred=1 --read_url="${TS_READ_URL}" --write_url="${TS_WRITE_URL}" --federatable=0 --default_graph="${WISSKI_DEFAULT_GRAPH}" --same_as='http://www.w3.org/2002/07/owl#sameAs' 1> /dev/null
+      drush wisski-salz:create-adapter --type='sparql11_with_pb' --adapter_label='Default' --adapter_machine_name='default' --description='Default SALZ adapter' --ts_machine_name="${TS_REPOSITORY}" --ts_use_token=0 --ts_user="${TS_USERNAME}" --ts_password="${TS_PASSWORD}" --writable=1 --preferred=1 --read_url="${TS_READ_URL}" --write_url="${TS_WRITE_URL}" --federatable=0 --default_graph="${WISSKI_DEFAULT_GRAPH}" --same_as='http://www.w3.org/2002/07/owl#sameAs' 1> /dev/null
       drush cr
     echo -e "\033[0;32mDEFAULT TRIPLESTORE ADAPTER INSTALLED.\033[0m\n"
 
@@ -515,18 +527,6 @@ EOF
         drush wisski-core:recreate-menus    
       echo -e "\033[0;32mTRANSLATIONS UPDATED.\033[0m\n"
 
-      # Download and set WissKI logo.
-      #wget https://wiss-ki.eu/sites/default/files/example/wisski_logo.png -O /opt/drupal/web/sites/default/files/wisski_logo.png
-      # Import example contents.
-      #curl -sSL 'https://wiss-ki.eu/example-contents' | curl -sS -w '\n%{http_code}\n' -X POST "${TS_WRITE_URL}" -H "Authorization: Token ${TS_TOKEN}" -H 'Content-Type: application/n-quads' --data-binary @-
-
-
-      echo -e "\033[0;33mImport start page and default menu items.\033[0m\n"
-      # Import example contents.
-      drush config:set single_content_sync.settings site_uuid_check 0 -y
-      drush content:import ../recipes/wisski_default_data_model/content/content.zip
-      echo -e "\033[0;32mSTART PAGE AND DEFAULT MENU ITEMS IMPORTED.\033[0m\n"
-
       echo -e "\033[0;33mDISABLE WISSKI MAIN MENU LINKS.\033[0m\n"
       # Disable WissKI main menu links (menu: main). Config stores encoded keys (dots -> __); use the API.
       # Create  main  wisski.create_entities | Navigate  main  wisski.browse_entities | Find  main  wisski.search_entities
@@ -537,11 +537,6 @@ EOF
         }
         "
       echo -e "\033[0;32mWISSKI MAIN MENU LINKS DISABLED.\033[0m\n"
-
-      echo -e "\033[0;33mSET FRONT PAGE.\033[0m\n"
-      # Set front page.
-      drush config:set system.site page.front /home -y
-      echo -e "\033[0;32mFRONT PAGE SET.\033[0m\n"
 
       # Set DLF AIM 3D Viewer settings.
       echo -e "\033[0;33mSET DLF AIM 3D VIEWER SETTINGS.\033[0m\n"
@@ -565,22 +560,35 @@ EOF
       echo -e "\033[0;32mIIIF configs set.\033[0m\n"
 
       echo -e "\033[0;32mGRANTING WISSKI USER PERMISSIONS.\033[0m\n"
-      # Grant WissKI user permissions.
-        drush role:perm:add 'wisski_user' 'access toolbar' -y
-        drush role:perm:add 'wisski_user' 'access navigate' -y
-        drush role:perm:add 'wisski_user' 'access create' -y
-        drush role:perm:add 'wisski_user' 'access find' -y
-        drush role:perm:add 'wisski_user' 'create any wisski content' -y
-        drush role:perm:add 'wisski_user' 'view any wisski content' -y
-        drush role:perm:add 'wisski_user' 'view published wisski content' -y
-        drush role:perm:add 'wisski_user' 'view own unpublished wisski content' -y
-        drush role:perm:add 'wisski_user' 'view other unpublished wisski content' -y
-        drush role:perm:add 'wisski_user' 'view wisski revisions' -y
-        drush role:perm:add 'wisski_user' 'revert wisski revisions' -y
-        drush role:perm:add 'wisski_user' 'edit any wisski content' -y
-        drush role:perm:add 'wisski_user' 'delete any wisski content' -y
-        drush role:perm:add 'wisski_user' 'access wisski manifests' -y
-        drush role:perm:add 'wisski_user' 'wisski_adapter_sparql11_pb.query' -y
+      if ! drush pm:list --status=enabled --type=module --filter=toolbar --format=list 2>/dev/null | grep -qx toolbar; then
+        drush en toolbar -y || echo -e "\033[0;33mWARNING: toolbar module not enabled; access toolbar will be skipped.\033[0m"
+      fi
+      grant_wisski_user_perm() {
+        local perm="$1"
+        if drush role:perm:add wisski_user "${perm}" -y; then
+          return 0
+        fi
+        echo -e "\033[0;33mWARNING: permission not defined, skipped: ${perm}\033[0m"
+      }
+      for perm in \
+        'access toolbar' \
+        'access navigate' \
+        'access create' \
+        'access find' \
+        'create any wisski content' \
+        'view any wisski content' \
+        'view published wisski content' \
+        'view own unpublished wisski content' \
+        'view other unpublished wisski content' \
+        'view wisski revisions' \
+        'revert wisski revisions' \
+        'edit any wisski content' \
+        'delete any wisski content' \
+        'access wisski manifests' \
+        'wisski_adapter_sparql11_pb.query'
+      do
+        grant_wisski_user_perm "${perm}"
+      done
       echo -e "\033[0;32mWISSKI USER PERMISSIONS GRANTED.\033[0m\n"
 
       echo -e "\033[0;33mCLEAR CACHE.\033[0m\n"
@@ -623,7 +631,7 @@ EOF
 
   # Set secure permissions following Drupal security guidelines.
   echo -e "\033[0;33mSET SECURE PERMISSIONS.\033[0m"
-  /usr/local/bin/set-permissions.sh
+  bash /usr/local/bin/set-permissions.sh
   ensure_dev_group_write
   echo -e "\033[0;32mSECURE PERMISSIONS SET.\033[0m\n"
 

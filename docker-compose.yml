@@ -53,7 +53,6 @@ services:
       TS_PASSWORD: ${TS_PASSWORD:-}
       TS_READ_URL: http://authproxy:8000/repositories/${TS_REPOSITORY:-default}
       TS_REPOSITORY: ${TS_REPOSITORY:-default}
-      TS_TOKEN: ${TS_TOKEN:-}
       TS_USERNAME: ${TS_USERNAME:-}
       TS_WRITE_URL: http://authproxy:8000/repositories/${TS_REPOSITORY:-default}/statements
       WISSKI_DEFAULT_DATA_MODEL_VERSION: ${WISSKI_DEFAULT_DATA_MODEL_VERSION:-true}
@@ -249,6 +248,10 @@ services:
         condition: service_started
 
   authproxy:
+    # Rebuild from ./opengdb/authproxy so RDF4J 6 PUT (201 / already-exists)
+    # keeps the Django repository row. `docker compose up --build` picks this up.
+    build:
+      context: ./opengdb/authproxy
     # OpenGDB uWSGI logs every SPARQL query string to stdout. Keep 4xx/5xx.
     command:
       - uwsgi

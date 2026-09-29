@@ -140,7 +140,7 @@ Hitting RDF4J directly skips OpenGDB login and repository ACLs. `nginx` in this 
 
 OpenGDB’s Django admin is [http://gdb.wisski.localhost/admin](http://gdb.wisski.localhost/admin) (`GDB_HOST`). Log in with `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`.
 
-By default Drupal SPARQL uses HTTP Basic with `TS_USERNAME` / `TS_PASSWORD` (same user as the Django superuser). OpenGDB also supports **token** auth, which avoids hashing the password on every SPARQL request. Use tokens over **HTTPS** in production ([OpenGDB note](https://github.com/FAU-CDI/open_gdb#token-authentication)).
+By default Drupal SPARQL uses HTTP Basic with `TS_USERNAME` / `TS_PASSWORD` (same user as the Django superuser). Bootstrap never reads a SPARQL token from `.env`. Optional **token** auth lives only in OpenGDB (Django admin → Auth Token) and in the WissKI SALZ adapter UI — paste it there if you want it, over **HTTPS** in production ([OpenGDB note](https://github.com/FAU-CDI/open_gdb#token-authentication)).
 
 1. **Optional dedicated user.** In Django admin → **Users**, add a user and give it rights on the `default` repository (RDF4J options / permissions). Or keep using the superuser.
 2. **Get a token** (form fields, not JSON):
@@ -153,10 +153,9 @@ curl -sS -X POST "http://gdb.wisski.localhost/api-token-auth/" \
 
 The same token is listed in Django admin under **Auth Token → Tokens**.
 
-3. **Fresh install.** Set `TS_TOKEN` in `.env` **before** the first `docker compose up`. The entrypoint then creates the WissKI SALZ adapter with token auth (`TS_USERNAME` / `TS_PASSWORD` can stay empty). Changing `TS_TOKEN` later does **not** rewrite an existing adapter.
-4. **Existing site.** Drupal → **Configuration → WissKI SALZ → Adapters** → Default (`/admin/config/wisski_salz/adapter/default/edit`) → enable token authentication, paste the token, save, then `docker compose exec drupal drush cr`.
+3. **Existing site.** Drupal → **Configuration → WissKI SALZ → Adapters** → Default (`/admin/config/wisski_salz/adapter/default/edit`) → enable token authentication, paste the token, save, then `docker compose exec drupal drush cr`.
 
-If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. On every boot the entrypoint rewrites the Default SALZ adapter read/write URLs from `TS_READ_URL` / `TS_WRITE_URL`; it does not rewrite the stored token or password. OpenGDB’s public UI (`GDB_HOST`) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
+If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps authproxy` is healthy and retry. On every boot the entrypoint rewrites the Default SALZ adapter read/write URLs from `TS_READ_URL` / `TS_WRITE_URL`; it does not rewrite the stored password. OpenGDB’s public UI (`GDB_HOST`) still goes through nginx; a 502 there usually means nginx still has a stale authproxy IP — `docker compose up -d --force-recreate nginx`.
 
 ## Layout
 
