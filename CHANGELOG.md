@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...HEAD)
+
+## [6.0.1](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1) - 2026-09-29
 
 ### Fixed
 - First (and later) Drupal boots create the OpenGDB `default` repository until SPARQL ASK returns HTTP 200 (HTTP Basic with `TS_USERNAME` / `TS_PASSWORD`). POST 400 is no longer treated as success. Authproxy `create_remote` accepts RDF4J 201/already-exists so Django keeps the row. Bootstrap creates `key_value_expire` after site install so the update module's clear does not log Postgres errors, and no longer imports `content.zip`. A WissKI-user permission that is not defined on this install is skipped with a warning instead of exiting the container. Development `chown` skips `:ro` Cursor/VS Code bind mounts.
@@ -259,7 +261,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.0.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.0.1...HEAD
+[6.0.1]: https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1
 [6.0.0]: https://github.com/rnsrk/dockerWissKI/compare/5.0.2...6.0.0
 [5.0.1]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...5.0.1
 [5.0.0]: https://github.com/rnsrk/dockerWissKI/compare/4.0.0...5.0.0
