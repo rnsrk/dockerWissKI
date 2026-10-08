@@ -4,7 +4,11 @@
 
 ### Changed
 - Development attach also supports Claude Code: named volume for `/home/developer/.claude`, optional binds from `.container-dev/claude/` onto `~/.claude/rules`, `~/.claude/skills`, `~/.claude/agents`, and `~/.claude/settings.json` (not into the WissKI clone). Same for Cursor under `~/.cursor/`. Entrypoint `chown` skips those `:ro` binds.
-- Drupal image default `WISSKI_PACKAGES_VERSION` is `4.3.0` (was `4.0.0`). The development preset uses `4.2.0` / `4.x` (was `3.7.0` / `3.x`). Rebuild the Drupal image to pick this up.
+- Drupal image default `WISSKI_PACKAGES_VERSION` is `4.3.0` (was `4.0.0`). The development preset uses `4.3.0` / `4.x` (was `3.7.0` / `3.x`). Rebuild the Drupal image to pick this up.
+- Development preset pulls the branch image `dockerwisski-development:5.x` (rebuilt on every push) instead of `latest`, which only moves on release tags. Existing `.env` files keep `WISSKI_IMAGE_VERSION=latest` until you change it. Refresh with `docker compose pull drupal`.
+
+### Fixed
+- GHCR images use the Dockerfile WissKI pins (`4.3.0` / `4.x`). The publish workflow had overridden them with `3.7.0` / `3.x`, so published images shipped WissKI 3.x. `docker-compose.local-build.yml` falls back to the same pins. Library downloads in the image build retry on transient GitHub errors (the 6.0.0 publish run failed there).
 
 ## [6.0.1](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1) - 2026-09-29
 
