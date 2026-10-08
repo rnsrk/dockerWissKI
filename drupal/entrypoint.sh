@@ -271,6 +271,87 @@ chown www-data:www-data /opt/drupal/web/sites /opt/drupal/private-files 2>/dev/n
 mkdir -p "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
 chown www-data:www-data "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
 
+# Development: the WissKI clone sits on its own volume (named volume from
+# docker-compose.development.yml, or a host bind from the override) so
+# branches, remotes, vendor/ and node_modules/ survive recreation and image
+# pulls. Docker seeds an empty named volume from the image; an empty host bind
+# is cloned here at the commit the image was built with.
+WISSKI_MODULE_DIR="/opt/drupal/web/modules/contrib/wisski"
+
+seed_wisski_clone() {
+  local packageSource url ref tmp
+  packageSource="$(php -r '
+    $installed = json_decode((string) file_get_contents("/opt/drupal/vendor/composer/installed.json"), true);
+    foreach ($installed["packages"] ?? [] as $package) {
+      if ($package["name"] === "drupal/wisski" && isset($package["source"]["url"])) {
+        echo $package["source"]["url"], " ", $package["source"]["reference"] ?? "";
+      }
+    }
+  ')"
+  read -r url ref <<< "${packageSource}"
+  if [ -z "${url}" ]; then
+    echo -e "\033[0;31mERROR: ${WISSKI_MODULE_DIR} is empty and the image has no WissKI source URL to clone from.\033[0m"
+    return 1
+  fi
+
+  echo -e "\033[0;33mSEEDING WISSKI CLONE INTO ${WISSKI_MODULE_DIR} (${url} @ ${ref:-HEAD})...\033[0m"
+  tmp="$(mktemp -d /tmp/wisski-seed.XXXXXX)"
+  chown developer "${tmp}"
+  # The system gitconfig rewrites drupalcode HTTPS to SSH; seeding must work
+  # without keys, so clone over HTTPS and let later fetch/push use SSH.
+  if ! su developer -s /bin/bash -c "GIT_CONFIG_NOSYSTEM=1 git clone --quiet '${url}' '${tmp}/wisski'"; then
+    rm -rf "${tmp}"
+    echo -e "\033[0;31mERROR: Could not clone ${url} into ${WISSKI_MODULE_DIR}.\033[0m"
+    return 1
+  fi
+  if [ -n "${ref}" ] && ! su developer -s /bin/bash -c "git -C '${tmp}/wisski' reset --quiet --hard '${ref}'"; then
+    echo -e "\033[0;33mWARNING: ${ref} not found upstream; WissKI clone stays on the default branch HEAD.\033[0m"
+  fi
+  cp -a "${tmp}/wisski/." "${WISSKI_MODULE_DIR}/"
+  rm -rf "${tmp}"
+  chown developer:www-data "${WISSKI_MODULE_DIR}"
+  echo -e "\033[0;32mWISSKI CLONE SEEDED.\033[0m\n"
+}
+
+ensure_wisski_dev_clone() {
+  if [ "${MODE}" != "development" ] || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
+
+  mkdir -p "${WISSKI_MODULE_DIR}"
+  if [ ! -f "${WISSKI_MODULE_DIR}/wisski.info.yml" ]; then
+    seed_wisski_clone || exit 1
+  fi
+
+  # Images before restore-git-modes.sh seeded the volume with every tracked
+  # script at 644. Fix that once per clone; later deliberate mode edits stay.
+  local modesMarker="${WISSKI_MODULE_DIR}/.git/dockerwisski-modes-restored"
+  if [ -d "${WISSKI_MODULE_DIR}/.git" ] && [ ! -f "${modesMarker}" ] \
+    && [ -f /usr/local/bin/restore-git-modes.sh ]; then
+    bash /usr/local/bin/restore-git-modes.sh "${WISSKI_MODULE_DIR}"
+    touch "${modesMarker}"
+  fi
+
+  if [ -f "${WISSKI_MODULE_DIR}/package.json" ] \
+    && [ ! -x "${WISSKI_MODULE_DIR}/node_modules/.bin/cspell" ] \
+    && command -v corepack >/dev/null 2>&1; then
+    echo -e "\033[0;33mINSTALLING WISSKI JS LINT TOOLS (yarn install)...\033[0m"
+    if su developer -s /bin/bash -c "cd '${WISSKI_MODULE_DIR}' && corepack yarn install --immutable"; then
+      echo -e "\033[0;32mWISSKI JS LINT TOOLS INSTALLED.\033[0m\n"
+    else
+      echo -e "\033[0;33mWARNING: yarn install failed in ${WISSKI_MODULE_DIR}; cspell/eslint/stylelint are unavailable.\033[0m\n"
+    fi
+  fi
+
+  if [ -d "${WISSKI_MODULE_DIR}/vendor/drupal/core" ]; then
+    echo -e "\033[0;33mWARNING: ${WISSKI_MODULE_DIR}/vendor contains a second drupal/core (pulled in by drupal/potx).\033[0m"
+    echo -e "\033[0;33mPHPStan then aborts with \"Cannot redeclare t()\". The lint and test tools are in /opt/drupal/vendor;\033[0m"
+    echo -e "\033[0;33mremove ${WISSKI_MODULE_DIR}/vendor so misc/scripts/*.sh use them.\033[0m\n"
+  fi
+}
+
+ensure_wisski_dev_clone
+
 # Development: `developer` is in www-data and edits via group write + setgid.
 # Named volumes (sites) and composer-installed packages often land as 755/644
 # without g+w; restore the bake-time layout. Ignore EROFS on optional :ro binds.

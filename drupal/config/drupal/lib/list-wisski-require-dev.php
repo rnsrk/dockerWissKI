@@ -3,7 +3,7 @@
 
 /**
  * Print WissKI require-dev package specs (name:constraint), one per line.
- * phpunit is omitted (needs drupal/core-dev). Empty stdout means skip require.
+ * phpunit is omitted: drupal/core-dev pins the version that matches core.
  */
 $file = $argv[1] ?? '';
 if ($file === '' || !is_readable($file)) {

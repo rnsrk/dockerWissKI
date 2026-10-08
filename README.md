@@ -34,7 +34,8 @@ First boot installs Drupal and WissKI recipes; that can take several minutes. Fo
 | Varnish | off | on (`COMPOSE_PROFILES` includes `production`) |
 | Caddy subdomains | `wisski.localhost`, `drupal.wisski.localhost`, … | same; site upstream is Varnish |
 | Xdebug | port 9003, trigger mode | not installed |
-| Lint tools | phpcs, phpstan, cspell (baked in) | not included |
+| Lint and test tools | phpcs, phpstan, `drupal/core-dev`, cspell/eslint/stylelint (baked in) | not included |
+| WissKI module | git clone on volume `wisski-module` | image codebase |
 | Git SSH | `openssh-client`, user `developer` | not included |
 | Page cache | off | 5 minutes |
 | Drupal bypass | `drupal.wisski.localhost` | `drupal.wisski.localhost` (replaces `127.0.0.1:8082`) |
@@ -73,6 +74,14 @@ Omit `-u developer` to run as root. PHP-FPM stays `www-data`.
 
 In development, `/opt/drupal` stays `www-data`-owned with group-write + setgid so `developer` (in `www-data`) can edit the tree. `settings.php` stays read-only (444); `sites/default` itself is writable (775) so you can add `settings.local.php`. Production still locks `sites/default` to 555.
 
+### WissKI clone (development)
+
+In development, `web/modules/contrib/wisski` is a git clone on the named volume `wisski-module`. Branches, remotes, `.git/config`, `vendor/`, and `node_modules/` survive container recreation, image pulls, and rebuilds. Docker fills the empty volume from the image once. Later image updates do not touch it, so update the clone with git (`git fetch`, `git rebase`, …). To start over from the image: `docker compose down`, `docker volume rm dockerwisski_wisski-module`, `docker compose up -d`.
+
+A host clone bind-mounted on the same path in `docker-compose.override.yml` replaces the volume (see `WISSKI_HOST_PATH`). If that host directory is empty, the entrypoint clones WissKI into it at the commit the image was built with.
+
+The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
+
 ### Attach Cursor / VS Code / Claude Code into Drupal
 
 For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `claude/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.
@@ -98,7 +107,7 @@ docker compose exec -u developer drupal mkdir -p \
 10. Start **Listen for Xdebug (in-container)**
 11. Trigger with `XDEBUG_TRIGGER=1` / a browser helper; for Drush: `XDEBUG_TRIGGER=1 drush --xdebug …`
 
-Optional live edit of a host WissKI clone: set `WISSKI_HOST_PATH` and uncomment that mount in the override (one module only — do not mount `vendor` or all of `contrib`). Development Xdebug is baked into the image (`127.0.0.1:9003`, trigger mode) for an IDE attached into `drupal`.
+Optional host WissKI clone instead of the `wisski-module` volume: set `WISSKI_HOST_PATH` and uncomment that mount in the override (one module only — do not mount `vendor` or all of `contrib`). `DEV_UID` / `DEV_GID` must match the host owner of the clone. Development Xdebug is baked into the image (`127.0.0.1:9003`, trigger mode) for an IDE attached into `drupal`.
 
 Per-developer (untracked) IDE customization:
 
@@ -193,7 +202,7 @@ drupal/config/                          # PHP, Nginx, Redis baked into the image
 Optional files are **not** in the presets. Append them in `.env` when needed, last file wins:
 
 ```bash
-# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, development preset 4.2.0 / 4.x)
+# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, development preset 4.3.0 / 4.x)
 COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml:docker-compose.local-build.yml
 
 # WissKI Data Importer UI (init submodule first)
@@ -205,7 +214,7 @@ COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.im
 
 `docker-compose.override.yml` is gitignored. Copy the example and append it last for bind-mounts, extra ports, or other machine-only changes.
 
-The development image installs WissKI’s PHP lint tools from the module `require-dev` when that key exists (WissKI 4.x; 3.x `scs_base` has none) and global `cspell`. Do not put those packages in `composer.local.json`.
+The development image installs WissKI’s PHP lint tools from the module `require-dev` (WissKI 4.x; 3.x `scs_base` has none), `drupal/core-dev` at the installed core version, and the module's Yarn tools (`node_modules/`). Do not put those packages in `composer.local.json`.
 
 ## Updating OpenGDB
 
@@ -244,7 +253,8 @@ The Drupal codebase in the image is replaced on every container start. Binding `
 | What | Where it lives | How to add it |
 | --- | --- | --- |
 | Drupal core, WissKI, image packages | Image | Pull a new image |
-| WissKI lint tools (phpcs, phpstan, cspell) | Development image | baked at build; do not put in `composer.local.json` |
+| WissKI lint and test tools (phpcs, phpstan, `drupal/core-dev`, cspell) | Development image | baked at build; do not put in `composer.local.json` |
+| WissKI git clone (development) | volume `wisski-module` | seeded from the image once; update with git |
 | Extra Composer packages (contrib modules, libraries) | `web/sites/composer.local.json` on the sites volume | `docker compose exec drupal wisski-composer require drupal/webform:^6.2` |
 | Custom modules | volume `web/modules/custom` | copy or bind-mount your code |
 | Custom themes | volume `web/themes/custom` | copy or bind-mount your code |

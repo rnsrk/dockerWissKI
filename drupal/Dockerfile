@@ -168,6 +168,9 @@ RUN set -eux; \
 
 # Node 22 + cspell for WissKI lint.sh / quicklint.sh (development only).
 # Matches the official WissKI Dockerfile (nodesource 22, global corepack + cspell).
+# COREPACK_HOME is shared so `developer` reuses the Yarn baked at build time.
+ENV COREPACK_HOME=/usr/local/share/corepack \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN set -eux; \
     if [ "$MODE" != "development" ]; then \
     exit 0; \
@@ -293,11 +296,14 @@ RUN set -eux; \
     mkdir -p /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom; \
     chown -R www-data:www-data /opt/drupal
 
-# WissKI lint tools (phpcs, phpstan, parallel-lint, …) into site vendor.
-# Constraints come from the installed module so the image stays in sync.
-# 3.x (dev-scs_base) has no require-dev; skip rather than `composer require` with
-# no packages (that prints usage and fails the build with xargs exit 123).
-# phpunit is skipped (needs drupal/core-dev; that is a test-runner concern).
+# WissKI lint and test tools into site vendor, the same layout as the Drupal
+# GitLab CI: the module's require-dev (phpcs, phpstan, parallel-lint, …) plus
+# drupal/core-dev at the installed core version. core-dev brings phpunit,
+# phpstan-phpunit, behat/mink and prophecy-phpunit; without them PHPStan does
+# not narrow PHPUnit asserts and reports differently than GitLab.
+# misc/scripts/_dev.sh falls back to PATH when the clone has no vendor/, so it
+# picks these up. A clone vendor/ is not needed (drupal/potx would pull a
+# second drupal/core into it and PHPStan aborts with "Cannot redeclare t()").
 ENV PATH="/opt/drupal/vendor/bin:${PATH}"
 COPY config/drupal/lib/list-wisski-require-dev.php /tmp/list-wisski-require-dev.php
 RUN set -eux; \
@@ -307,10 +313,9 @@ RUN set -eux; \
     fi; \
     cd /opt/drupal; \
     php /tmp/list-wisski-require-dev.php web/modules/contrib/wisski/composer.json > /tmp/wisski-require-dev.txt; \
-    if [ ! -s /tmp/wisski-require-dev.txt ]; then \
-    echo "WissKI composer.json has no require-dev lint packages; skipping."; \
-    else \
-    set --; \
+    coreVersion="$(composer show drupal/core --format=json | php -r 'echo json_decode(stream_get_contents(STDIN), true)["versions"][0] ?? "";')"; \
+    test -n "${coreVersion}"; \
+    set -- "drupal/core-dev:${coreVersion}"; \
     while IFS= read -r pkg || [ -n "$pkg" ]; do \
     [ -n "$pkg" ] || continue; \
     set -- "$@" "$pkg"; \
@@ -319,29 +324,47 @@ RUN set -eux; \
     composer update --with-all-dependencies --no-interaction --no-progress; \
     cp composer.json .wisski-composer.json; \
     cp composer.lock .wisski-composer.lock; \
-    fi; \
     rm -f /tmp/list-wisski-require-dev.php /tmp/wisski-require-dev.txt; \
     composer clear-cache; \
     chown -R www-data:www-data /opt/drupal
 
-# JS libraries for WissKI and DLF AIM 3D Viewer (mirrors drush download commands).
+# WissKI JS lint tools (cspell, eslint, stylelint) into the module's
+# node_modules/, where misc/scripts/_dev.sh calls them. Same Yarn (corepack)
+# and --immutable lock check as the GitLab stylelint job.
 RUN set -eux; \
-    curl -fsSL "https://github.com/rnsrk/wisski-mirador-integration/archive/main.zip" -o /tmp/wisski-mirador-integration.zip; \
+    if [ "$MODE" != "development" ]; then \
+    exit 0; \
+    fi; \
+    cd /opt/drupal/web/modules/contrib/wisski; \
+    if [ ! -f package.json ]; then \
+    echo "WissKI has no package.json; skipping yarn install."; \
+    exit 0; \
+    fi; \
+    corepack enable; \
+    yarn install --immutable; \
+    rm -rf /root/.yarn /root/.cache; \
+    chown -R www-data:www-data /opt/drupal/web/modules/contrib/wisski "${COREPACK_HOME}"; \
+    chmod -R g+w "${COREPACK_HOME}"
+
+# JS libraries for WissKI and DLF AIM 3D Viewer (mirrors drush download commands).
+# GitHub archive downloads fail intermittently on shared CI runners; retry.
+RUN set -eux; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/rnsrk/wisski-mirador-integration/archive/main.zip" -o /tmp/wisski-mirador-integration.zip; \
     mkdir -p /opt/drupal/web/libraries/wisski-mirador-integration; \
     unzip -qo /tmp/wisski-mirador-integration.zip -d /tmp; \
     cp -a /tmp/wisski-mirador-integration-main/. /opt/drupal/web/libraries/wisski-mirador-integration/; \
     rm -rf /tmp/wisski-mirador-integration.zip /tmp/wisski-mirador-integration-main; \
-    curl -fsSL "https://github.com/TurbojetTechnologies/colorbox/archive/1.7.0.zip" -o /tmp/colorbox.zip; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/TurbojetTechnologies/colorbox/archive/1.7.0.zip" -o /tmp/colorbox.zip; \
     mkdir -p /opt/drupal/web/libraries/colorbox; \
     unzip -qo /tmp/colorbox.zip -d /tmp; \
     cp -a /tmp/colorbox-1.7.0/. /opt/drupal/web/libraries/colorbox/; \
     rm -rf /tmp/colorbox.zip /tmp/colorbox-1.7.0; \
-    curl -fsSL "https://github.com/cure53/DOMPurify/archive/main.zip" -o /tmp/dompurify.zip; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/cure53/DOMPurify/archive/main.zip" -o /tmp/dompurify.zip; \
     mkdir -p /opt/drupal/web/libraries/dompurify; \
     unzip -qo /tmp/dompurify.zip -d /tmp; \
     cp -a /tmp/DOMPurify-main/dist /opt/drupal/web/libraries/dompurify/; \
     rm -rf /tmp/dompurify.zip /tmp/DOMPurify-main; \
-    curl -fsSL "https://github.com/thedworak/dfg_3dviewer/archive/standalone.zip" -o /tmp/dlf_aim_3d_viewer.zip; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/thedworak/dfg_3dviewer/archive/standalone.zip" -o /tmp/dlf_aim_3d_viewer.zip; \
     mkdir -p /opt/drupal/web/libraries/dlf_aim_3d_viewer; \
     unzip -qo /tmp/dlf_aim_3d_viewer.zip -d /tmp; \
     cp -a /tmp/dfg_3dviewer-standalone/. /opt/drupal/web/libraries/dlf_aim_3d_viewer/; \
@@ -358,15 +381,21 @@ RUN set -eux; \
 # IDE can git/edit under /opt/drupal without root or sudo. PID 1 stays root
 # (nginx, php-fpm). PHP-FPM workers stay www-data. Group-write + setgid on
 # the tree is how developer gets access; they do not install system packages.
+# node_modules/ keeps the modes Yarn set (its .bin/ targets must stay
+# executable). Git checkouts get their tracked 100755 bits back so they do
+# not start out dirty.
 ARG DEV_UID=1000
 ARG DEV_GID=1000
+COPY config/drupal/restore-git-modes.sh /usr/local/bin/restore-git-modes.sh
 RUN set -eux; \
-    find /opt/drupal -type d -exec chmod 755 {} +; \
-    find /opt/drupal -type f -exec chmod 644 {} +; \
+    chmod 755 /usr/local/bin/restore-git-modes.sh; \
+    find /opt/drupal -path '*/node_modules' -prune -o -type d -exec chmod 755 {} +; \
+    find /opt/drupal -path '*/node_modules' -prune -o -type f -exec chmod 644 {} +; \
     if [ -d /opt/drupal/vendor/bin ]; then \
     find /opt/drupal/vendor/bin -type f -exec chmod 755 {} +; \
     fi; \
     find /opt/drupal/vendor -type f -print0 | xargs -0 grep -l -m1 '^#!' 2>/dev/null | xargs -r chmod 755; \
+    restore-git-modes.sh /opt/drupal; \
     find /opt/drupal/web -name .htaccess -exec chmod 444 {} +; \
     if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi; \
     if [ "$MODE" = "development" ]; then \

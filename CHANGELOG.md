@@ -6,9 +6,12 @@
 - Development attach also supports Claude Code: named volume for `/home/developer/.claude`, optional binds from `.container-dev/claude/` onto `~/.claude/rules`, `~/.claude/skills`, `~/.claude/agents`, and `~/.claude/settings.json` (not into the WissKI clone). Same for Cursor under `~/.cursor/`. Entrypoint `chown` skips those `:ro` binds.
 - Drupal image default `WISSKI_PACKAGES_VERSION` is `4.3.0` (was `4.0.0`). The development preset uses `4.3.0` / `4.x` (was `3.7.0` / `3.x`). Rebuild the Drupal image to pick this up.
 - Development preset pulls the branch image `dockerwisski-development:5.x` (rebuilt on every push) instead of `latest`, which only moves on release tags. Existing `.env` files keep `WISSKI_IMAGE_VERSION=latest` until you change it. Refresh with `docker compose pull drupal`.
+- Development keeps the WissKI git clone on the named volume `wisski-module`, so branches, remotes, `vendor/`, and `node_modules/` survive container recreation and image pulls. Docker seeds the volume from the image once. Update it with git, or remove the volume to reseed. An empty host bind on the same path is cloned at boot. Before the first recreate, push or copy any work that only exists in the container's clone.
+- Development image installs `drupal/core-dev` at the installed core version next to the WissKI `require-dev` in the site vendor (same layout as the Drupal GitLab CI). This brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`, so local PHPStan narrows PHPUnit asserts like GitLab. The module's Yarn tools (cspell, eslint, stylelint) are baked into `node_modules/` and reinstalled at boot if missing.
 
 ### Fixed
 - GHCR images use the Dockerfile WissKI pins (`4.3.0` / `4.x`). The publish workflow had overridden them with `3.7.0` / `3.x`, so published images shipped WissKI 3.x. `docker-compose.local-build.yml` falls back to the same pins. Library downloads in the image build retry on transient GitHub errors (the 6.0.0 publish run failed there).
+- The image permission bake no longer leaves Composer git checkouts dirty: tracked `100755` files (484 in WissKI) keep their executable bit, and `node_modules/` keeps the modes Yarn set. Development repairs a clone seeded from an older image once at boot.
 
 ## [6.0.1](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1) - 2026-09-29
 

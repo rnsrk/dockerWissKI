@@ -10,6 +10,12 @@ services:
       DEV_UID: ${DEV_UID:-1000}
       DEV_GID: ${DEV_GID:-1000}
     volumes:
+      # WissKI git clone (branches, remotes, vendor/, node_modules/, .git/config)
+      # survives container recreation and image pulls. Docker seeds the empty
+      # volume from the image once; later image updates do not touch it, so
+      # update the clone with git. A host bind on the same path in
+      # docker-compose.override.yml replaces this volume.
+      - wisski-module:/opt/drupal/web/modules/contrib/wisski
       # OPcache on with mtime checks so bind-mounted WissKI still live-reloads.
       # Overrides the published image's opcache.enable=0 without a rebuild.
       - ./drupal/config/opcache/zz-opcache-recommended-dev.ini:/usr/local/etc/php/conf.d/zzz-opcache-runtime.ini:ro
@@ -17,6 +23,10 @@ services:
       # apply without waiting for a GHCR rebuild.
       - ./drupal/entrypoint.sh:/entrypoint.sh:ro
       - ./drupal/config/drupal/set-permissions.sh:/usr/local/bin/set-permissions.sh:ro
+      - ./drupal/config/drupal/restore-git-modes.sh:/usr/local/bin/restore-git-modes.sh:ro
     labels:
       # Attach Cursor / VS Code / Claude Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'
+
+volumes:
+  wisski-module:

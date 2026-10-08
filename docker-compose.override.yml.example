@@ -67,8 +67,10 @@ services:
       # Shared WissKI workspace VS Code/Cursor config (in this repo).
       - ./.container-dev/wisski-vscode:/opt/drupal/web/modules/contrib/wisski/.vscode:ro
 
-      # --- Optional: live-edit WissKI from a host clone (ONE module only) ---
-      # Do NOT mount all of web/modules/contrib or vendor.
+      # --- Optional: host WissKI clone instead of the wisski-module volume ---
+      # Same target path, so this replaces the named volume from
+      # docker-compose.development.yml. An empty host dir is cloned at boot.
+      # ONE module only: do NOT mount all of web/modules/contrib or vendor.
       # - ${WISSKI_HOST_PATH:-../wisski}:/opt/drupal/web/modules/contrib/wisski
 
       # --- Optional: custom site code ---
