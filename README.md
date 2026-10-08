@@ -8,8 +8,8 @@ This repository builds and publishes its own images. It does not depend on the S
 
 | Image | When to use |
 | --- | --- |
-| `ghcr.io/rnsrk/dockerwisski-production` | OPcache on, no Xdebug, Caddy → Varnish |
-| `ghcr.io/rnsrk/dockerwisski-development` | OPcache off, Xdebug on port 9003, Caddy → Drupal |
+| `ghcr.io/rnsrk/dockerwisski-production` | OPcache on (no timestamp checks), no Xdebug, Caddy → Varnish |
+| `ghcr.io/rnsrk/dockerwisski-development` | OPcache on with timestamp checks, Xdebug (trigger mode, `127.0.0.1:9003` inside the container), Caddy → Drupal |
 
 After the first GitHub Actions publish, set the GHCR packages to **public** so pulls do not need a token.
 
@@ -80,42 +80,11 @@ In development, `web/modules/contrib/wisski` is a git clone on the named volume 
 
 A host clone bind-mounted on the same path in `docker-compose.override.yml` replaces the volume (see `WISSKI_HOST_PATH`). If that host directory is empty, the entrypoint clones WissKI into it at the commit the image was built with.
 
-The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
+The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. Login shells reset `PATH` in `/etc/profile`; `/etc/profile.d/wisski-path.sh` puts that directory back. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
 
-### Attach Cursor / VS Code / Claude Code into Drupal
+### IDE attach (Cursor / VS Code / Claude Code)
 
-For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `claude/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.
-
-The development image runs nginx/PHP-FPM as root/`www-data` and the attached IDE as **`developer`** (host UID, in the `www-data` group, write access under `/opt/drupal`, no sudo). That is why `~/.ssh` can be bind-mounted directly — OpenSSH requires the files to be owned by the user running `ssh`.
-
-1. `cp docker-compose.override.yml.example docker-compose.override.yml`
-2. Append `:docker-compose.override.yml` to `COMPOSE_FILE` in `.env`
-3. If your host UID is not 1000, set `DEV_UID` / `DEV_GID` in `.env` (and rebuild locally so the image user matches)
-4. `docker compose up -d`
-5. Optional: add personal files under `/.container-dev/` (`cursor/`, `claude/`, Machine settings, a WissKI clone) and uncomment those mounts in `docker-compose.override.yml`. Cursor and Claude Code rules/skills/agents bind onto `/home/developer/.cursor` and `/home/developer/.claude` (Claude `settings.json` onto `~/.claude/settings.json`) so the WissKI clone stays clean. For git SSH remotes, uncomment the `~/.ssh` (or `SSH_HOST_PATH`) mount onto `/home/developer/.ssh`. Recreate Drupal after a development image that includes `openssh-client` and the `developer` user (local rebuild or a newer GHCR pull).
-6. If you bind personal Machine `settings.json` files, create their parent dirs once:
-
-```bash
-docker compose exec -u developer drupal mkdir -p \
-  /home/developer/.cursor-server/data/Machine \
-  /home/developer/.vscode-server/data/Machine
-```
-
-7. If those file mounts were added before the dirs existed: `docker compose up -d --force-recreate drupal`
-8. Attach Cursor / VS Code / Claude Code to the `drupal` service as user **`developer`** (the development compose file sets `remoteUser`)
-9. Open `/opt/drupal/web/modules/contrib/wisski`
-10. Start **Listen for Xdebug (in-container)**
-11. Trigger with `XDEBUG_TRIGGER=1` / a browser helper; for Drush: `XDEBUG_TRIGGER=1 drush --xdebug …`
-
-Optional host WissKI clone instead of the `wisski-module` volume: set `WISSKI_HOST_PATH` and uncomment that mount in the override (one module only — do not mount `vendor` or all of `contrib`). `DEV_UID` / `DEV_GID` must match the host owner of the clone. Development Xdebug is baked into the image (`127.0.0.1:9003`, trigger mode) for an IDE attached into `drupal`.
-
-Per-developer (untracked) IDE customization:
-
-- Shared workspace config is [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/) (`settings.json`, `launch.json`, `extensions.json`), mounted onto `/opt/drupal/web/modules/contrib/wisski/.vscode`.
-- Personal files stay gitignored under `/.container-dev/` (`cursor/`, `claude/`, `wisski/`, `vscode-machine-settings.json`). The override example has opt-in mounts for those, plus an optional host SSH key bind (`~/.ssh` or `.container-dev/ssh/` → `/home/developer/.ssh`). Cursor and Claude Code bind `rules/`, `skills/`, and `agents/` onto `/home/developer/.cursor` and `/home/developer/.claude`. Claude Code `settings.json` binds onto `/home/developer/.claude/settings.json`. Do not bind `.claude/` into the WissKI module tree.
-- VS Code extensions themselves stay untracked in the persisted remote server volume.
-- If you do not bind personal Machine settings files, edit remote settings directly in the attached container; they still persist in the named volumes and stay out of git.
-- The local image build uses `./drupal` as its Docker build context, so repo-root `/.container-dev/` content is not copied into the image.
+The development image is meant to be edited from inside: attach your IDE to the `drupal` service as user `developer`, open `/opt/drupal/web/modules/contrib/wisski`, and debug with Xdebug on `127.0.0.1:9003`. The setup (override file, persisted remote-server volumes, SSH keys, personal settings) is in [`docs/ide-attach.md`](docs/ide-attach.md). Shared workspace files are in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/).
 
 ## Access
 
@@ -188,7 +157,7 @@ config/postgres/                        # Postgres init (pg_trgm)
 config/varnish/default.vcl              # Varnish (production profile)
 config/pgadmin/                         # pgAdmin servers.json (filled from DB_* on start)
 config/opengdb/                         # RDF4J entrypoint, nginx DNS TTL
-config/drupal/                          # example composer.local.json
+docs/                                   # IDE attach guide, example composer.local.json
 .container-dev/wisski-vscode/           # shared in-container VS Code workspace files
 drupal/config/                          # PHP, Nginx, Redis baked into the image
 ```
@@ -203,7 +172,8 @@ drupal/config/                          # PHP, Nginx, Redis baked into the image
 Optional files are **not** in the presets. Append them in `.env` when needed, last file wins:
 
 ```bash
-# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, development preset 4.3.0 / 4.x)
+# Local image build. The WissKI package set is pinned by the ARG defaults in drupal/Dockerfile;
+# set WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE in .env to override them.
 COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml:docker-compose.local-build.yml
 
 # WissKI Data Importer UI (init submodule first)
@@ -249,7 +219,7 @@ If `HTTP_PORT` is not 80, add that port to `WISSKI_DATA_IMPORTER_CSRF_TRUSTED_OR
 
 ## Extra modules, libraries, and custom code
 
-The Drupal codebase in the image is replaced on every container start. Binding `composer.json` / `vendor` / `web/modules/contrib` as volumes would hide the new image and desync lock files.
+The Drupal codebase belongs to the image: a new container always starts from the image's `composer.json` and lock. Binding `composer.json` / `vendor` / `web/modules/contrib` as volumes would hide the new image and desync lock files.
 
 **Warning:** `docker compose exec drupal composer require …` (or any other install that only writes into the image filesystem) is gone after the next start. The entrypoint restores the image `composer.json` / lock and drops anything that is not recorded in `web/sites/composer.local.json`. Use `wisski-composer` instead.
 
@@ -265,7 +235,7 @@ The Drupal codebase in the image is replaced on every container start. Binding `
 
 On every boot the entrypoint restores the **image** `composer.json` (and lock), then `composer require`s whatever is in `composer.local.json`. Composer cache is a volume, so repeats are fast. After an image upgrade, extras are installed on top of the new Drupal; if a constraint cannot be satisfied, the container exits until you fix `composer.local.json`.
 
-Example file: [`config/drupal/composer.local.json.example`](config/drupal/composer.local.json.example).
+Example file: [`docs/composer.local.json.example`](docs/composer.local.json.example).
 
 ```bash
 docker compose exec drupal wisski-composer require drupal/webform:^6.2

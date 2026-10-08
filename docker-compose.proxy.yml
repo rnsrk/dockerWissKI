@@ -29,10 +29,9 @@ services:
           cpus: "0.5"
           memory: 128M
 
-  # Caddy owns HTTP_PORT. Keep Xdebug on loopback in development.
+  # Caddy owns HTTP_PORT, so no service publishes a host port of its own.
   drupal:
-    ports: !override
-      - 127.0.0.1:${XDEBUG_PORT:-9003}:9003
+    ports: !reset []
 
   varnish:
     ports: !reset []

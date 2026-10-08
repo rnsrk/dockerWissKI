@@ -5,10 +5,11 @@ services:
   drupal:
     ports:
       - ${HTTP_PORT:-80}:80
-      - ${XDEBUG_PORT:-9003}:9003
     environment:
       DEV_UID: ${DEV_UID:-1000}
       DEV_GID: ${DEV_GID:-1000}
+      # Xdebug runs in trigger mode; XDEBUG_MODE=off in .env switches it off.
+      XDEBUG_MODE: ${XDEBUG_MODE:-debug}
     volumes:
       # WissKI git clone (branches, remotes, vendor/, node_modules/, .git/config)
       # survives container recreation and image pulls. Docker seeds the empty

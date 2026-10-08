@@ -262,7 +262,6 @@ RUN git config --system --add safe.directory '*'
 
 # Copy Redis settings configuration.
 COPY config/redis/redis.settings.php /var/configs/redis.settings.php
-COPY config/rdf/default_repository.ttl /var/configs/default_repository.ttl
 
 # Bake the Drupal codebase from the drupal_packages composer manifest.
 # Extra site packages are re-applied at boot from composer.local.json.
@@ -454,6 +453,7 @@ RUN if [ "$MODE" = "production" ]; then \
     fi
 
 # Add permission scripts and set initial ownerships and permissions.
+COPY config/drupal/wisski-path.sh /etc/profile.d/wisski-path.sh
 COPY config/drupal/set-permissions.sh /usr/local/bin/set-permissions.sh
 COPY config/drupal/sync-reverse-proxy.sh /usr/local/bin/sync-reverse-proxy.sh
 COPY config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.sh
@@ -463,17 +463,11 @@ COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-compos
 # php:*-fpm sets listen = 9000 in docker.conf; this later [www] file overrides
 # it so nginx can use unix:/run/php/php-fpm.sock.
 COPY config/php-fpm/zz-wisski-listen.conf /usr/local/etc/php-fpm.d/zz-wisski-listen.conf
-COPY config/php-fpm/zz-wisski-production.conf /usr/local/etc/php-fpm.d/zz-wisski-production.conf
 RUN chmod +x /usr/local/bin/set-permissions.sh \
     /usr/local/bin/sync-reverse-proxy.sh \
     /usr/local/bin/apply-composer-local.sh \
     /usr/local/bin/wisski-composer \
     /usr/local/lib/wisski/reverse-proxy.py
-RUN set -eux; \
-    if [ "$MODE" != "production" ]; then \
-    rm -f /usr/local/etc/php-fpm.d/zz-wisski-production.conf; \
-    fi
-
 # Add entrypoint.
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -482,9 +476,9 @@ EXPOSE 80
 
 STOPSIGNAL SIGTERM
 
-# Health check via the health_check module endpoint.
+# Health check via the health_check module endpoint. Compose uses this one.
 # Long start period: the first boot installs and configures the whole site.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30m --retries=3 \
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30m --retries=30 \
     CMD curl -fsS http://localhost/health || exit 1
 
 # Use tini as PID 1 for signal forwarding and zombie reaping.

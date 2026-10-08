@@ -2,8 +2,25 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
 
+### Changed
+- The WissKI package set is pinned only by the `WISSKI_PACKAGES_VERSION` / `WISSKI_PACKAGES_LINE` ARG defaults in `drupal/Dockerfile`. The env presets no longer carry the two variables (`production.env` said `3.7.0` / `3.x`, which contradicted the published images and a local build). A value in `.env` still overrides the default for `docker-compose.local-build.yml`.
+- No service publishes a host port in the presets any more, because Caddy owns `HTTP_PORT`. The Xdebug port `9003` is gone from `docker-compose.development.yml` and `docker-compose.proxy.yml`: Xdebug connects from inside the container to the IDE running there. `XDEBUG_PORT` is no longer used.
+- `XDEBUG_MODE` from `.env` now reaches the development container (default `debug`), as the README already said. `XDEBUG_MODE=off` switches the extension off.
+- The Drupal health check is defined once, in the Dockerfile (interval 15 s, 30 retries after the start period), instead of twice with different values.
+- `docker-compose.apple-silicon.yml` forces `linux/amd64` only for `drupal` and `outproxy`, the images that are published for amd64 alone.
+- The Caddyfile shares the timeout and upload-size settings through snippets. The adapted configuration is identical.
+- The IDE attach guide moved from the README to `docs/ide-attach.md`; `composer.local.json.example` moved to `docs/`.
+
 ### Fixed
 - The `opengdb` submodule pointed at a commit that exists only in one local checkout, so `git clone --recurse-submodules` failed. It is back on upstream `f072910`. The authproxy fix from that commit (a refused RDF4J `PUT` made authproxy delete the Django row and, through `pre_delete`, the existing RDF4J repository with its data) now lives in `patches/opengdb/` and is applied when building `authproxy`. The authproxy image is called `dockerwisski-authproxy` and is built from the new `authproxy-upstream` service (scale 0, never started). Run `docker compose build authproxy` once. The patch README has the text for the upstream pull request.
+- Login shells keep `/opt/drupal/vendor/bin` on `PATH`. `/etc/profile` was replacing the image `ENV` and dropping phpcs, phpstan, and phpunit for `developer` and in-container agents.
+- The shared VS Code settings pointed `phpsab` at `wisski/vendor/bin/phpcs`, which the README says must not exist. They use `/opt/drupal/vendor/bin` now.
+- README: the image table said development has OPcache off, the IDE guide said to rebuild locally for a non-1000 UID (the entrypoint adapts the `developer` user), and the extra-packages section said the codebase is replaced on every start (only a new container starts from the image).
+
+### Removed
+- Unused files: `drupal/config/apache/` (the image runs nginx), both `default_repository.ttl` copies, and `zz-wisski-production.conf` (the entrypoint always overwrote its pool settings).
+- `extra_hosts: host.docker.internal` on the Drupal service; nothing used it since Xdebug connects to `127.0.0.1`. Add it to `docker-compose.override.yml` if your own code needs it.
+- Unreachable and duplicate rules in the Varnish VCL (`^/admin/.*`, `^/user/.*`, a POST/PUT/DELETE branch after the method check, a second cookie removal for anonymous visitors).
 
 ## [6.1.0](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0) - 2026-10-08
 

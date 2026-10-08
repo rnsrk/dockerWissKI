@@ -2,44 +2,43 @@
 	auto_https off
 }
 
+# Long timeouts for SPARQL and large uploads.
+(slow_upstream) {
+	transport http {
+		dial_timeout 10s
+		read_timeout 600s
+		write_timeout 600s
+	}
+}
+
+(large_uploads) {
+	request_body {
+		max_size 512MB
+	}
+}
+
 # Public port may not be 80 (e.g. HTTP_PORT=3600). Match on hostname only.
 :80 {
 	@site host {$SITE_HOST:wisski.localhost} localhost 127.0.0.1
 	handle @site {
-		request_body {
-			max_size 512MB
-		}
+		import large_uploads
 		reverse_proxy {$SITE_UPSTREAM:drupal:80} {
-			transport http {
-				dial_timeout 10s
-				read_timeout 600s
-				write_timeout 600s
-			}
+			import slow_upstream
 		}
 	}
 
 	@drupal host {$DRUPAL_HOST:drupal.wisski.localhost}
 	handle @drupal {
-		request_body {
-			max_size 512MB
-		}
+		import large_uploads
 		reverse_proxy drupal:80 {
-			transport http {
-				dial_timeout 10s
-				read_timeout 600s
-				write_timeout 600s
-			}
+			import slow_upstream
 		}
 	}
 
 	@gdb host {$GDB_HOST:gdb.wisski.localhost}
 	handle @gdb {
 		reverse_proxy nginx:80 {
-			transport http {
-				dial_timeout 10s
-				read_timeout 600s
-				write_timeout 600s
-			}
+			import slow_upstream
 		}
 	}
 
@@ -55,15 +54,9 @@
 
 	@importer host {$IMPORTER_HOST:import.wisski.localhost}
 	handle @importer {
-		request_body {
-			max_size 512MB
-		}
+		import large_uploads
 		reverse_proxy wisski-data-importer-web:8000 {
-			transport http {
-				dial_timeout 10s
-				read_timeout 600s
-				write_timeout 600s
-			}
+			import slow_upstream
 		}
 	}
 

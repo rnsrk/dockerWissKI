@@ -49,9 +49,7 @@ sub vcl_recv {
         req.url ~ "^/update\.php$" ||
         req.url ~ "^/install\.php$" ||
         req.url ~ "^/admin" ||
-        req.url ~ "^/admin/.*$" ||
         req.url ~ "^/user" ||
-        req.url ~ "^/user/.*$" ||
         req.url ~ "^/flag/.*$" ||
         req.url ~ "^.*/ajax/.*$" ||
         req.url ~ "^.*/ahah/.*$") {
@@ -65,21 +63,10 @@ sub vcl_recv {
         unset req.http.Cookie;
     }
 
-    # Remove cookies for non-admin paths if there are no Drupal sessions.
-    if (!(req.url ~ "^/admin") &&
-        !(req.http.Cookie ~ "SESS[a-z0-9]+") &&
+    # Anonymous visitors (no Drupal session cookie) get no cookies at all.
+    if (!(req.http.Cookie ~ "SESS[a-z0-9]+") &&
         !(req.http.Cookie ~ "SSESS[a-z0-9]+")
     ) {
-        unset req.http.Cookie;
-    }
-
-    # If POST, PUT or DELETE, then don't cache.
-    if (req.method == "POST" || req.method == "PUT" || req.method == "DELETE") {
-        return (pass);
-    }
-
-    # Drupal 11: Remove cookies for anonymous users.
-    if (!(req.http.Cookie ~ "SESS") && !(req.http.Cookie ~ "SSESS")) {
         unset req.http.Cookie;
     }
 
