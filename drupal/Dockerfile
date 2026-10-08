@@ -132,7 +132,6 @@ RUN set -eux; \
     memcached \
     netcat-openbsd \
     nginx \
-    python3 \
     rsync \
     sendmail \
     tini \
@@ -381,15 +380,14 @@ RUN set -eux; \
     sed -i 's|error_log /var/log/nginx/error.log warn;|error_log off;|' /etc/nginx/nginx.conf; \
     fi
 
-# Boot scripts, Redis settings include, login-shell PATH.
+# Boot scripts, the Redis settings include (settings.docker.php includes it),
+# and the login-shell PATH.
 COPY config/redis/redis.settings.php /var/configs/redis.settings.php
 COPY config/drupal/wisski-path.sh /etc/profile.d/wisski-path.sh
 COPY --chmod=755 config/drupal/set-permissions.sh /usr/local/bin/set-permissions.sh
-COPY --chmod=755 config/drupal/sync-reverse-proxy.sh /usr/local/bin/sync-reverse-proxy.sh
 COPY --chmod=755 config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.sh
 COPY --chmod=755 config/drupal/wisski-composer.sh /usr/local/bin/wisski-composer
 COPY --chmod=755 config/drupal/group-writable.sh /usr/local/bin/group-writable.sh
-COPY --chmod=755 config/drupal/lib/reverse-proxy.py /usr/local/lib/wisski/reverse-proxy.py
 COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-composer-local.php
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 

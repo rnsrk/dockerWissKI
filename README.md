@@ -64,6 +64,19 @@ Development enables OPcache with timestamp checks so bind-mounted WissKI still l
 
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. WissKI Data Importer UI: append `docker-compose.importer.yml` (before `docker-compose.proxy.yml`) and `git submodule update --init wisski_data_importer`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
+### Drupal settings from the environment
+
+The Drupal installer creates `settings.php` and the entrypoint leaves it alone, apart from one `include` line at the end. On every start the entrypoint writes `web/sites/default/settings.docker.php` from the environment and `settings.php` includes it last, so it wins over anything set earlier:
+
+| Setting | Comes from |
+| --- | --- |
+| `trusted_host_patterns` | `DRUPAL_TRUSTED_HOSTS`, patterns separated by `\|` |
+| `file_private_path` | `DRUPAL_PRIVATE_FILES_DIR` |
+| Redis cache backend | `drupal/config/redis/redis.settings.php` |
+| Reverse proxy | `DRUPAL_PROXY_ADDRESSES`: `none` (default, also unset, `off`, `false`, `0`), `auto` (the container's Docker networks, which Caddy and Varnish share), or CIDRs separated by `\|` |
+
+To change one of these, edit `.env` and recreate the container (`docker compose up -d`). A value set by hand in `settings.php` is overridden. Put anything else into `settings.local.php`.
+
 ### Shell as developer
 
 ```bash

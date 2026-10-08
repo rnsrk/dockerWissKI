@@ -5,7 +5,8 @@
  *
  * Based on official documentation: https://project.pages.drupalcode.org/redis/
  *
- * Included from settings.php. $app_root and $class_loader come from that scope.
+ * Included from settings.docker.php, which settings.php includes. $app_root and
+ * $class_loader come from the settings.php scope.
  * Do not probe Redis here: a 2s connect timeout would delay every bootstrap
  * (entrypoint Drush and web) when Redis is slow or down.
  */

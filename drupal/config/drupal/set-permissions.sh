@@ -19,7 +19,7 @@ else
 fi
 if [ -d "${WEB_ROOT}/sites/default" ]; then
   chown root:www-data "${WEB_ROOT}/sites/default"
-  for file in settings.php services.yml settings.local.php; do
+  for file in settings.php settings.docker.php services.yml settings.local.php; do
     if [ -f "${WEB_ROOT}/sites/default/${file}" ]; then
       chown root:www-data "${WEB_ROOT}/sites/default/${file}"
       chmod 444 "${WEB_ROOT}/sites/default/${file}"

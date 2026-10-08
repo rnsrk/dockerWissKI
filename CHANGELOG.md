@@ -6,6 +6,7 @@
 - The codebase in `/opt/drupal` belongs to root in both images, not to `www-data`. PHP-FPM can read it but no longer change it; only `web/sites`, `private-files`, `web/modules/custom`, `web/themes/custom`, and the temp, log, and cache directories stay writable for `www-data`. Pull or build the new image and recreate the container (`docker compose up -d --force-recreate drupal`). `set-permissions.sh` now runs on every boot and moves the settings files and `sites/default` of an existing site to root ownership.
 - Composer runs as root at boot (it ran as `www-data`). Run `wisski-composer` as root, which is the default for `docker compose exec`. `developer` cannot run Composer because it does not own the files Composer touches.
 - The image has no MySQL/MariaDB driver any more (`mysqli`, `pdo_mysql`, `libmariadb3`, and `zz-mysqli-recommended.ini` are gone). The stack has only supported PostgreSQL: the entrypoint waits for the database with `pg_isready`.
+- Trusted hosts, the private files path, the Redis include, and the reverse proxy settings come from a generated `web/sites/default/settings.docker.php` that `settings.php` includes last. The entrypoint rewrites it on every start, so `DRUPAL_TRUSTED_HOSTS` and `DRUPAL_PROXY_ADDRESSES` changes in `.env` take effect (the hosts used to be appended once at install, the proxy block was patched by a Python script). A value for these settings that you added by hand to `settings.php` is overridden. Existing sites keep the lines the old entrypoint appended; they are harmless because the include comes last. Trusted host patterns are now written as exact single-quoted PHP strings instead of being interpolated through double quotes.
 
 ### Changed
 - The image no longer runs a recursive `chmod 644` over the codebase and a `chown -R` after every build step. Each of these copied the whole tree into a new layer (1.07 GB in the development image) and stripped executable bits, which `restore-git-modes.sh` and a marker file in the entrypoint then repaired. Composer and git already create 644/755 files, so none of that is needed. The development image went from about 3.2 GB to 1.9 GB.
@@ -30,6 +31,7 @@
 
 ### Removed
 - `restore-git-modes.sh`, its marker file in the WissKI clone, and its compose mount.
+- `reverse-proxy.py`, `sync-reverse-proxy.sh`, and `python3` in the image; nothing else used Python.
 - Packages nothing used: `libgmp`, `libbrotli-dev`, `libvips-dev`, and runtime libraries that were listed twice in the builder stage. `iproute2` is now listed explicitly because the proxy sync calls `ip`.
 - Unused files: `drupal/config/apache/` (the image runs nginx), both `default_repository.ttl` copies, and `zz-wisski-production.conf` (the entrypoint always overwrote its pool settings).
 - `extra_hosts: host.docker.internal` on the Drupal service; nothing used it since Xdebug connects to `127.0.0.1`. Add it to `docker-compose.override.yml` if your own code needs it.
