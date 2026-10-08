@@ -193,7 +193,7 @@ drupal/config/                          # PHP, Nginx, Redis baked into the image
 Optional files are **not** in the presets. Append them in `.env` when needed, last file wins:
 
 ```bash
-# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, currently 3.7.0 / 3.x)
+# Local image build (uses WISSKI_PACKAGES_VERSION / WISSKI_PACKAGES_LINE, development preset 4.2.0 / 4.x)
 COMPOSE_FILE=docker-compose.yml:docker-compose.development.yml:docker-compose.proxy.yml:docker-compose.local-build.yml
 
 # WissKI Data Importer UI (init submodule first)

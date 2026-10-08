@@ -107,7 +107,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 ARG MODE=production
 # Production: semver manifest path (wisski_base/production/<version>) with lock file.
-ARG WISSKI_PACKAGES_VERSION=4.0.0
+ARG WISSKI_PACKAGES_VERSION=4.3.0
 # Development: major-line manifest path (wisski_base/development/<line>), no lock file.
 ARG WISSKI_PACKAGES_LINE=4.x
 
