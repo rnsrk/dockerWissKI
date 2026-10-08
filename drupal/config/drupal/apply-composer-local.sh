@@ -5,6 +5,10 @@
 # web/sites/composer.local.json (sites volume).
 
 set -euo pipefail
+# Composer runs as root. In development the `developer` user (group www-data)
+# edits the same tree, so new files should be group-writable (see
+# group-writable.sh for the files that umask cannot fix).
+umask 002
 
 ROOT="/opt/drupal"
 LOCAL_JSON="${ROOT}/web/sites/composer.local.json"

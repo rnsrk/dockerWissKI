@@ -2,7 +2,18 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
 
+### Breaking Changes
+- The codebase in `/opt/drupal` belongs to root in both images, not to `www-data`. PHP-FPM can read it but no longer change it; only `web/sites`, `private-files`, `web/modules/custom`, `web/themes/custom`, and the temp, log, and cache directories stay writable for `www-data`. Pull or build the new image and recreate the container (`docker compose up -d --force-recreate drupal`). `set-permissions.sh` now runs on every boot and moves the settings files and `sites/default` of an existing site to root ownership.
+- Composer runs as root at boot (it ran as `www-data`). Run `wisski-composer` as root, which is the default for `docker compose exec`. `developer` cannot run Composer because it does not own the files Composer touches.
+- The image has no MySQL/MariaDB driver any more (`mysqli`, `pdo_mysql`, `libmariadb3`, and `zz-mysqli-recommended.ini` are gone). The stack has only supported PostgreSQL: the entrypoint waits for the database with `pg_isready`.
+
 ### Changed
+- The image no longer runs a recursive `chmod 644` over the codebase and a `chown -R` after every build step. Each of these copied the whole tree into a new layer (1.07 GB in the development image) and stripped executable bits, which `restore-git-modes.sh` and a marker file in the entrypoint then repaired. Composer and git already create 644/755 files, so none of that is needed. The development image went from about 3.2 GB to 1.9 GB.
+- The 3D viewer library ships only `dist/drupal`; its `dist/dev`, `dist/prod`, and `dist/test` builds (about 200 MB) are not referenced by the Drupal module.
+- Development: the tree is group-writable with group `www-data` from build time (umask 002, setgid, and one `chmod g+w` for files extracted from zip archives in the same layer that creates them). At boot only the volume mount points and packages Composer installed need a pass. `wisski-composer` runs the same pass, so a package is editable right after `require`.
+- PHP settings live in `drupal/config/php/` (`zz-wisski.ini`, `zz-redis.ini`, `zz-apcu.ini`, and `development/` or `production/` for OPcache and Xdebug), copied with one `COPY` each. The configuration is copied after the Composer layers, so editing a setting no longer rebuilds the codebase. Values are unchanged.
+- `set-permissions.sh` handles only the settings files, `sites/default`, and the files directories, and it is cheap enough to run on every boot. The recursive walk over uploaded files happens once, when the directory is not yet owned by `www-data`.
+- The Dockerfile uses `COPY --chmod` instead of a separate `chmod` step, creates `/fcgi-bin`, the Composer home, and the log files once, creates the Xdebug log only in development, and drops the unused `CMD` (the entrypoint starts nginx itself).
 - The WissKI package set is pinned only by the `WISSKI_PACKAGES_VERSION` / `WISSKI_PACKAGES_LINE` ARG defaults in `drupal/Dockerfile`. The env presets no longer carry the two variables (`production.env` said `3.7.0` / `3.x`, which contradicted the published images and a local build). A value in `.env` still overrides the default for `docker-compose.local-build.yml`.
 - No service publishes a host port in the presets any more, because Caddy owns `HTTP_PORT`. The Xdebug port `9003` is gone from `docker-compose.development.yml` and `docker-compose.proxy.yml`: Xdebug connects from inside the container to the IDE running there. `XDEBUG_PORT` is no longer used.
 - `XDEBUG_MODE` from `.env` now reaches the development container (default `debug`), as the README already said. `XDEBUG_MODE=off` switches the extension off.
@@ -18,6 +29,8 @@
 - README: the image table said development has OPcache off, the IDE guide said to rebuild locally for a non-1000 UID (the entrypoint adapts the `developer` user), and the extra-packages section said the codebase is replaced on every start (only a new container starts from the image).
 
 ### Removed
+- `restore-git-modes.sh`, its marker file in the WissKI clone, and its compose mount.
+- Packages nothing used: `libgmp`, `libbrotli-dev`, `libvips-dev`, and runtime libraries that were listed twice in the builder stage. `iproute2` is now listed explicitly because the proxy sync calls `ip`.
 - Unused files: `drupal/config/apache/` (the image runs nginx), both `default_repository.ttl` copies, and `zz-wisski-production.conf` (the entrypoint always overwrote its pool settings).
 - `extra_hosts: host.docker.internal` on the Drupal service; nothing used it since Xdebug connects to `127.0.0.1`. Add it to `docker-compose.override.yml` if your own code needs it.
 - Unreachable and duplicate rules in the Varnish VCL (`^/admin/.*`, `^/user/.*`, a POST/PUT/DELETE branch after the method check, a second cookie removal for anonymous visitors).

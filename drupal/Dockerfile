@@ -16,31 +16,23 @@ RUN set -eux; \
     autoconf \
     automake \
     git \
-    libaom3 \
     libavif-dev \
-    libavif15 \
-    libbrotli-dev \
-    libdav1d6 \
     libfreetype6-dev \
-    libgmp-dev \
     libicu-dev \
     libjpeg-dev \
-    libjpeg62-turbo \
     libmemcached-dev \
     libonig-dev \
     libpng-dev \
-    libpng16-16 \
     libpq-dev \
     libtiff-dev \
     libtool \
-    libvips-dev \
     libwebp-dev \
     libzip-dev \
     unzip \
     wget; \
     rm -rf /var/lib/apt/lists/*
 
-# Install apcu (enabled at runtime via zz-apcu-custom.ini).
+# Install apcu (enabled at runtime via config/php/zz-apcu.ini).
 RUN set -eux; \
     pecl install apcu
 
@@ -53,9 +45,8 @@ RUN docker-php-ext-configure gd \
     && docker-php-ext-install -j"$(nproc)" gd
 
 # Drupal-required extensions (the official Drupal image would have shipped these).
+# PostgreSQL only; this stack has no MySQL/MariaDB driver.
 RUN docker-php-ext-install -j"$(nproc)" \
-    mysqli \
-    pdo_mysql \
     pdo_pgsql \
     zip
 
@@ -122,14 +113,13 @@ RUN set -eux; \
     postgresql-client \
     git \
     imagemagick \
+    iproute2 \
     libaom3 \
     libavif15 \
     libdav1d6 \
     libfreetype6 \
-    libgmp10 \
     libicu72 \
     libjpeg62-turbo \
-    libmariadb3 \
     libmemcached11 \
     libonig5 \
     libpng16-16 \
@@ -181,93 +171,34 @@ RUN set -eux; \
     npm cache clean --force; \
     rm -rf /var/lib/apt/lists/*
 
-# Copy compiled PHP extensions and enablement snippets from the builder.
+# Compiled PHP extensions, their enablement snippets, and the iipsrv binary.
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/docker-php-ext-*.ini /usr/local/etc/php/conf.d/
-
-# Copy the iipsrv binary.
 COPY --from=builder /fcgi-bin/iipsrv.fcgi /fcgi-bin/iipsrv.fcgi
-RUN chown www-data:www-data /fcgi-bin/iipsrv.fcgi
 
-# Add php configs.
-# Cron + Drush tasks should NOT use APCu → causes stale caches during deployments.
-COPY config/apcu/zz-apcu-custom.ini /usr/local/etc/php/conf.d/zz-apcu-custom.ini
-
-# Redis configuration.
-# Note: extension is already enabled by docker-php-ext-enable above.
-# Wait 5 seconds before retrying to acquire the lock (wait forever can freeze ajax).
-COPY config/redis/zz-redis-custom.ini /usr/local/etc/php/conf.d/zz-redis-custom.ini
-
-# set memory settings for WissKI.
-COPY config/wisski/zz-wisski-recommended.ini /usr/local/etc/php/conf.d/zz-wisski-recommended.ini
-
-# Disable deprecated assert.* directives (PHP 8.4+).
-COPY config/assert/zz-assert-disable.ini /usr/local/etc/php/conf.d/zz-assert-disable.ini
-
-# Enable output buffering.
-COPY config/drupal/zz-drupal-recommended.ini /usr/local/etc/php/conf.d/zz-drupal-recommended.ini
-
-# Copy config files to temp location for conditional copying.
-COPY config/ /tmp/config/
-
-# Configure opcache.
-# see https://secure.php.net/manual/en/opcache.installation.php
-RUN set -eux; \
-    if [ "$MODE" = "development" ]; then \
-    cp /tmp/config/opcache/zz-opcache-recommended-dev.ini /usr/local/etc/php/conf.d/zz-opcache-recommended.ini; \
-    cp /tmp/config/xdebug/zz-xdebug.ini /usr/local/etc/php/conf.d/zz-xdebug.ini; \
-    else \
-    cp /tmp/config/opcache/zz-opcache-recommended-prod.ini /usr/local/etc/php/conf.d/zz-opcache-recommended.ini; \
-    fi; \
-    rm -rf /tmp/config
-
-# Configure mysqli.
-# see https://secure.php.net/manual/en/opcache.installation.php
-COPY config/mysqli/zz-mysqli-recommended.ini /usr/local/etc/php/conf.d/zz-mysqli-recommended.ini
-
-# Configure session.
-COPY config/session/zz-session-recommended.ini /usr/local/etc/php/conf.d/zz-session-recommended.ini
-
-# Prepare IIPImage and xdebug log files.
-RUN set -eux; \
-    touch /var/log/iipsrv.log; \
-    chown www-data:www-data /var/log/iipsrv.log; \
-    mkdir -p /var/log/xdebug; \
-    touch /var/log/xdebug/xdebug.log; \
-    chown -R www-data:www-data /var/log/xdebug; \
-    chmod 775 /var/log/xdebug; \
-    chmod 664 /var/log/xdebug/xdebug.log
-
-# Isolated tmp for PHP-FPM only (sys_temp_dir / pool env[TMPDIR]).
-# Do not set image ENV TMPDIR: Cursor's git askpass IPC socket uses
-# os.tmpdir(), and a global TMPDIR makes git push look for a missing
-# vscode-git-*.sock under /var/tmp/drupal.
-RUN mkdir -p /var/tmp/drupal \
-    && chown www-data:www-data /var/tmp/drupal \
-    && chmod 775 /var/tmp/drupal
-
-# Socket dir for PHP-FPM. The listen override is copied with the other pool
-# snippets so changing it does not bust the Composer layer.
-RUN mkdir -p /run/php
-
-# Create configs and Composer home directories,
-# writable by the runtime user (single layer to avoid image bloat).
-RUN set -eux; \
-    mkdir -p /var/configs /var/composer-home /fcgi-bin; \
-    chown -R www-data:www-data /var/configs /var/composer-home; \
-    chmod -R 775 /var/configs /var/composer-home
-
-# Disable Git "dubious ownership" checks inside the container.
-RUN git config --system --add safe.directory '*'
-
-# Copy Redis settings configuration.
-COPY config/redis/redis.settings.php /var/configs/redis.settings.php
+# Who owns what:
+# - /opt/drupal (core, vendor, modules, libraries) belongs to root. PHP-FPM
+#   (www-data) can read but not write it, and Composer runs as root. Nothing
+#   chowns or chmods this tree afterwards: that would copy every file into a
+#   new layer. Composer and git already create 644/755 files.
+# - Development: the tree is group-writable with group www-data (setgid) so
+#   `developer` (in www-data) can edit it. umask 002 covers git checkouts;
+#   packages from zip archives keep their 644/755, so the RUN that creates
+#   them ends with `find … ! -perm -g=w -exec chmod g+w`. That touches only the
+#   files that need it, which keeps the change inside the layer that created
+#   them. A separate chmod -R in a later RUN would copy the whole tree.
+# - The writable state (sites, private-files, custom modules and themes) lives
+#   on volumes owned by www-data; the entrypoint prepares them.
 
 # Bake the Drupal codebase from the drupal_packages composer manifest.
 # Extra site packages are re-applied at boot from composer.local.json.
 RUN set -eux; \
-    rm -rf /opt/drupal; \
-    mkdir -p /opt/drupal; \
+    if [ "$MODE" = "development" ]; then \
+    umask 002; \
+    install -d -g www-data -m 2775 /opt/drupal; \
+    else \
+    install -d -m 755 /opt/drupal; \
+    fi; \
     cd /opt/drupal; \
     packagesRepoBaseUrl="https://raw.githubusercontent.com/soda-collections-objects-data-literacy/drupal_packages/main/wisski_base"; \
     if [ "$MODE" = "development" ]; then \
@@ -293,7 +224,9 @@ RUN set -eux; \
     cp composer.json .wisski-composer.json; \
     if [ -f composer.lock ]; then cp composer.lock .wisski-composer.lock; fi; \
     mkdir -p /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom; \
-    chown -R www-data:www-data /opt/drupal
+    if [ "$MODE" = "development" ]; then \
+    find /opt/drupal -xdev ! -type l ! -perm -g=w -not -path '*/node_modules/*' -exec chmod g+w {} +; \
+    fi
 
 # WissKI lint and test tools into site vendor, the same layout as the Drupal
 # GitLab CI: the module's require-dev (phpcs, phpstan, parallel-lint, …) plus
@@ -310,6 +243,7 @@ RUN set -eux; \
     rm -f /tmp/list-wisski-require-dev.php; \
     exit 0; \
     fi; \
+    umask 002; \
     cd /opt/drupal; \
     php /tmp/list-wisski-require-dev.php web/modules/contrib/wisski/composer.json > /tmp/wisski-require-dev.txt; \
     coreVersion="$(composer show drupal/core --format=json | php -r 'echo json_decode(stream_get_contents(STDIN), true)["versions"][0] ?? "";')"; \
@@ -325,7 +259,7 @@ RUN set -eux; \
     cp composer.lock .wisski-composer.lock; \
     rm -f /tmp/list-wisski-require-dev.php /tmp/wisski-require-dev.txt; \
     composer clear-cache; \
-    chown -R www-data:www-data /opt/drupal
+    find /opt/drupal -xdev ! -type l ! -perm -g=w -not -path '*/node_modules/*' -exec chmod g+w {} +
 
 # WissKI JS lint tools (cspell, eslint, stylelint) into the module's
 # node_modules/, where misc/scripts/_dev.sh calls them. Same Yarn (corepack)
@@ -339,138 +273,128 @@ RUN set -eux; \
     echo "WissKI has no package.json; skipping yarn install."; \
     exit 0; \
     fi; \
+    umask 002; \
+    install -d -g www-data -m 2775 "${COREPACK_HOME}"; \
     corepack enable; \
     yarn install --immutable; \
-    rm -rf /root/.yarn /root/.cache; \
-    chown -R www-data:www-data /opt/drupal/web/modules/contrib/wisski "${COREPACK_HOME}"; \
-    chmod -R g+w "${COREPACK_HOME}"
+    rm -rf /root/.yarn /root/.cache
 
 # JS libraries for WissKI and DLF AIM 3D Viewer (mirrors drush download commands).
 # GitHub archive downloads fail intermittently on shared CI runners; retry.
+# The 3D viewer ships three builds of the viewer (dev, prod, test) that nothing
+# references; the Drupal module only loads dist/drupal/main.
 RUN set -eux; \
     curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/rnsrk/wisski-mirador-integration/archive/main.zip" -o /tmp/wisski-mirador-integration.zip; \
     mkdir -p /opt/drupal/web/libraries/wisski-mirador-integration; \
     unzip -qo /tmp/wisski-mirador-integration.zip -d /tmp; \
-    cp -a /tmp/wisski-mirador-integration-main/. /opt/drupal/web/libraries/wisski-mirador-integration/; \
+    cp -a --no-preserve=ownership /tmp/wisski-mirador-integration-main/. /opt/drupal/web/libraries/wisski-mirador-integration/; \
     rm -rf /tmp/wisski-mirador-integration.zip /tmp/wisski-mirador-integration-main; \
     curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/TurbojetTechnologies/colorbox/archive/1.7.0.zip" -o /tmp/colorbox.zip; \
     mkdir -p /opt/drupal/web/libraries/colorbox; \
     unzip -qo /tmp/colorbox.zip -d /tmp; \
-    cp -a /tmp/colorbox-1.7.0/. /opt/drupal/web/libraries/colorbox/; \
+    cp -a --no-preserve=ownership /tmp/colorbox-1.7.0/. /opt/drupal/web/libraries/colorbox/; \
     rm -rf /tmp/colorbox.zip /tmp/colorbox-1.7.0; \
     curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/cure53/DOMPurify/archive/main.zip" -o /tmp/dompurify.zip; \
     mkdir -p /opt/drupal/web/libraries/dompurify; \
     unzip -qo /tmp/dompurify.zip -d /tmp; \
-    cp -a /tmp/DOMPurify-main/dist /opt/drupal/web/libraries/dompurify/; \
+    cp -a --no-preserve=ownership /tmp/DOMPurify-main/dist /opt/drupal/web/libraries/dompurify/; \
     rm -rf /tmp/dompurify.zip /tmp/DOMPurify-main; \
     curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/thedworak/dfg_3dviewer/archive/standalone.zip" -o /tmp/dlf_aim_3d_viewer.zip; \
     mkdir -p /opt/drupal/web/libraries/dlf_aim_3d_viewer; \
     unzip -qo /tmp/dlf_aim_3d_viewer.zip -d /tmp; \
-    cp -a /tmp/dfg_3dviewer-standalone/. /opt/drupal/web/libraries/dlf_aim_3d_viewer/; \
+    cp -a --no-preserve=ownership /tmp/dfg_3dviewer-standalone/. /opt/drupal/web/libraries/dlf_aim_3d_viewer/; \
+    rm -rf /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/dev \
+           /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/prod \
+           /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/test; \
     rm -rf /tmp/dlf_aim_3d_viewer.zip /tmp/dfg_3dviewer-standalone; \
-    chown -R www-data:www-data /opt/drupal/web/libraries
+    if [ "$MODE" = "development" ]; then \
+    find /opt/drupal -xdev ! -type l ! -perm -g=w -not -path '*/node_modules/*' -exec chmod g+w {} +; \
+    fi
 
-# Bake static file permissions for the immutable codebase, following Drupal
-# security guidelines (directories 755, files 644). The codebase never changes
-# at runtime, so doing this once at build time avoids a slow recursive walk over
-# vendor/ on first boot. Runtime only adjusts the writable state directories and
-# locks down the generated settings files (see set-permissions.sh).
-#
 # Development also creates `developer` (host UID, in www-data) so an attached
 # IDE can git/edit under /opt/drupal without root or sudo. PID 1 stays root
-# (nginx, php-fpm). PHP-FPM workers stay www-data. Group-write + setgid on
-# the tree is how developer gets access; they do not install system packages.
-# node_modules/ keeps the modes Yarn set (its .bin/ targets must stay
-# executable). Git checkouts get their tracked 100755 bits back so they do
-# not start out dirty.
+# (nginx, php-fpm). PHP-FPM workers stay www-data. The tree is already
+# group-writable (see above); the user only has to be in the group.
 ARG DEV_UID=1000
 ARG DEV_GID=1000
-COPY config/drupal/restore-git-modes.sh /usr/local/bin/restore-git-modes.sh
 RUN set -eux; \
-    chmod 755 /usr/local/bin/restore-git-modes.sh; \
-    find /opt/drupal -path '*/node_modules' -prune -o -type d -exec chmod 755 {} +; \
-    find /opt/drupal -path '*/node_modules' -prune -o -type f -exec chmod 644 {} +; \
-    if [ -d /opt/drupal/vendor/bin ]; then \
-    find /opt/drupal/vendor/bin -type f -exec chmod 755 {} +; \
+    if [ "$MODE" != "development" ]; then \
+    exit 0; \
     fi; \
-    find /opt/drupal/vendor -type f -print0 | xargs -0 grep -l -m1 '^#!' 2>/dev/null | xargs -r chmod 755; \
-    restore-git-modes.sh /opt/drupal; \
-    find /opt/drupal/web -name .htaccess -exec chmod 444 {} +; \
-    if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi; \
-    if [ "$MODE" = "development" ]; then \
     groupadd --gid "${DEV_GID}" developer; \
     useradd --uid "${DEV_UID}" --gid developer --groups www-data \
       --create-home --home-dir /home/developer --shell /bin/bash developer; \
-    chmod -R g+w /opt/drupal; \
-    find /opt/drupal -type d -exec chmod g+s {} +; \
-    find /opt/drupal/web -name .htaccess -exec chmod 444 {} +; \
-    if [ -f /opt/drupal/web/robots.txt ]; then chmod 444 /opt/drupal/web/robots.txt; fi; \
     printf '%s\n' \
       'Host git.drupalcode.org' \
       '  Hostname git.drupal.org' \
       '  User git' \
       > /etc/ssh/ssh_config.d/drupal.conf; \
     git config --system --add url."git@git.drupal.org:".insteadOf "https://git.drupalcode.org/"; \
-    git config --system --add url."git@git.drupal.org:".insteadOf "git@git.drupalcode.org:"; \
-    fi
+    git config --system --add url."git@git.drupal.org:".insteadOf "git@git.drupalcode.org:"
 
-# Persistent private files live outside the web root (mounted as a volume).
+# Directories PHP-FPM, iipsrv and Composer write to.
+# - /opt/drupal/private-files: persistent private files (mounted as a volume).
+# - /var/tmp/drupal: PHP-FPM only (sys_temp_dir / pool env[TMPDIR]). Do not set
+#   image ENV TMPDIR: Cursor's git askpass IPC socket uses os.tmpdir(), and a
+#   global TMPDIR makes git push look for a missing vscode-git-*.sock there.
+# - /var/composer-home: Composer home and cache (mounted as a volume). Group
+#   www-data and setgid so `docker exec -u www-data` and `developer` can use it.
+# - /var/log/iipsrv.log, and in development /var/log/xdebug: written by
+#   www-data (iipsrv, PHP-FPM).
 RUN set -eux; \
-    mkdir -p /opt/drupal/private-files; \
-    chown www-data:www-data /opt/drupal/private-files; \
-    chmod 775 /opt/drupal/private-files
-
-LABEL org.wisski.packages.version="${WISSKI_PACKAGES_VERSION}" \
-    org.wisski.packages.line="${WISSKI_PACKAGES_LINE}"
-
-# Set Composer home directory.
+    install -d -o www-data -g www-data -m 775 /opt/drupal/private-files /var/tmp/drupal; \
+    install -d -g www-data -m 2775 /var/composer-home /var/composer-home/cache /var/composer-home/cache/vcs /var/composer-home/cache/repo; \
+    install -o www-data -g www-data -m 664 /dev/null /var/log/iipsrv.log; \
+    if [ "$MODE" = "development" ]; then \
+    install -d -o www-data -g www-data -m 775 /var/log/xdebug; \
+    install -o www-data -g www-data -m 664 /dev/null /var/log/xdebug/xdebug.log; \
+    fi; \
+    mkdir -p /run/php /var/configs; \
+    usermod -s /bin/bash www-data
 ENV COMPOSER_HOME=/var/composer-home
 
-# Pre-create Composer cache dirs for www-data. Runtime exec (e.g. composer show
-# --latest via docker exec as www-data) needs a writable cache; root-owned cache
-# appears if anything runs Composer as root with COMPOSER_HOME set.
-RUN set -eux; \
-    mkdir -p /var/composer-home/cache/vcs /var/composer-home/cache/repo; \
-    chown -R www-data:www-data /var/composer-home; \
-    chmod -R 775 /var/composer-home
+# Disable Git "dubious ownership" checks inside the container.
+RUN git config --system --add safe.directory '*'
 
-# Set www-data user to use bash.
-RUN usermod -s /bin/bash www-data
+# PHP configuration. The shared files go to every image, the OPcache and
+# Xdebug settings come from config/php/<MODE>/. Each file only sets directives
+# that no other file sets. Copied after the Composer layers so changing a
+# setting does not rebuild the codebase.
+COPY config/php/*.ini /usr/local/etc/php/conf.d/
+COPY config/php/${MODE}/ /usr/local/etc/php/conf.d/
 
-# Configure Nginx.
-COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY config/nginx/drupal.conf /etc/nginx/conf.d/drupal.conf
-RUN mkdir -p /etc/nginx/snippets
-COPY config/iipsrv/iipsrv.nginx.conf /etc/nginx/snippets/iipsrv.conf
-RUN rm -f /etc/nginx/conf.d/default.conf && \
-    ln -sf /dev/stdout /var/log/nginx/access.log && \
-    ln -sf /dev/stderr /var/log/nginx/error.log && \
-    mkdir -p /run/nginx
-
-RUN if [ "$MODE" = "production" ]; then \
-    sed -i 's|access_log /var/log/nginx/access.log main;|access_log off;|' /etc/nginx/nginx.conf && \
-    sed -i 's|error_log /var/log/nginx/error.log warn;|error_log off;|' /etc/nginx/nginx.conf; \
-    fi
-
-# Add permission scripts and set initial ownerships and permissions.
-COPY config/drupal/wisski-path.sh /etc/profile.d/wisski-path.sh
-COPY config/drupal/set-permissions.sh /usr/local/bin/set-permissions.sh
-COPY config/drupal/sync-reverse-proxy.sh /usr/local/bin/sync-reverse-proxy.sh
-COPY config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.sh
-COPY config/drupal/wisski-composer.sh /usr/local/bin/wisski-composer
-COPY config/drupal/lib/reverse-proxy.py /usr/local/lib/wisski/reverse-proxy.py
-COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-composer-local.php
 # php:*-fpm sets listen = 9000 in docker.conf; this later [www] file overrides
 # it so nginx can use unix:/run/php/php-fpm.sock.
 COPY config/php-fpm/zz-wisski-listen.conf /usr/local/etc/php-fpm.d/zz-wisski-listen.conf
-RUN chmod +x /usr/local/bin/set-permissions.sh \
-    /usr/local/bin/sync-reverse-proxy.sh \
-    /usr/local/bin/apply-composer-local.sh \
-    /usr/local/bin/wisski-composer \
-    /usr/local/lib/wisski/reverse-proxy.py
-# Add entrypoint.
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+
+# Nginx. The access and error log go to the container log in development.
+COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY config/nginx/drupal.conf /etc/nginx/conf.d/drupal.conf
+COPY config/iipsrv/iipsrv.nginx.conf /etc/nginx/snippets/iipsrv.conf
+RUN set -eux; \
+    rm -f /etc/nginx/conf.d/default.conf; \
+    ln -sf /dev/stdout /var/log/nginx/access.log; \
+    ln -sf /dev/stderr /var/log/nginx/error.log; \
+    mkdir -p /run/nginx; \
+    if [ "$MODE" = "production" ]; then \
+    sed -i 's|access_log /var/log/nginx/access.log main;|access_log off;|' /etc/nginx/nginx.conf; \
+    sed -i 's|error_log /var/log/nginx/error.log warn;|error_log off;|' /etc/nginx/nginx.conf; \
+    fi
+
+# Boot scripts, Redis settings include, login-shell PATH.
+COPY config/redis/redis.settings.php /var/configs/redis.settings.php
+COPY config/drupal/wisski-path.sh /etc/profile.d/wisski-path.sh
+COPY --chmod=755 config/drupal/set-permissions.sh /usr/local/bin/set-permissions.sh
+COPY --chmod=755 config/drupal/sync-reverse-proxy.sh /usr/local/bin/sync-reverse-proxy.sh
+COPY --chmod=755 config/drupal/apply-composer-local.sh /usr/local/bin/apply-composer-local.sh
+COPY --chmod=755 config/drupal/wisski-composer.sh /usr/local/bin/wisski-composer
+COPY --chmod=755 config/drupal/group-writable.sh /usr/local/bin/group-writable.sh
+COPY --chmod=755 config/drupal/lib/reverse-proxy.py /usr/local/lib/wisski/reverse-proxy.py
+COPY config/drupal/lib/sync-composer-local.php /usr/local/lib/wisski/sync-composer-local.php
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
+
+LABEL org.wisski.packages.version="${WISSKI_PACKAGES_VERSION}" \
+    org.wisski.packages.line="${WISSKI_PACKAGES_LINE}"
 
 EXPOSE 80
 
@@ -481,6 +405,6 @@ STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30m --retries=30 \
     CMD curl -fsS http://localhost/health || exit 1
 
-# Use tini as PID 1 for signal forwarding and zombie reaping.
+# Use tini as PID 1 for signal forwarding and zombie reaping. The entrypoint
+# starts nginx, PHP-FPM, memcached, and iipsrv itself and ignores arguments.
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
-CMD ["nginx","-g","daemon off;"]

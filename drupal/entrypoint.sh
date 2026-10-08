@@ -147,22 +147,6 @@ fi
 
 echo -e "\033[0;32mALL REQUIRED ENVIRONMENT VARIABLES ARE SET.\033[0m\n"
 
-# Xdebug is loaded for CLI Drush (root) and PHP-FPM (www-data). Create the log
-# as www-data before any PHP runs; otherwise root creates it 644 and FPM cannot
-# write ("File '/var/log/xdebug/xdebug.log' could not be opened").
-ensure_xdebug_log() {
-  if [ "${MODE}" != "development" ]; then
-    return 0
-  fi
-  mkdir -p /var/log/xdebug
-  touch /var/log/xdebug/xdebug.log
-  chown www-data:www-data /var/log/xdebug /var/log/xdebug/xdebug.log
-  chmod 775 /var/log/xdebug
-  chmod 664 /var/log/xdebug/xdebug.log
-}
-
-ensure_xdebug_log
-
 # Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
 sync_salz_adapter_urls() {
   if [ ! -f "${SETTINGS_FILE}" ]; then
@@ -323,15 +307,6 @@ ensure_wisski_dev_clone() {
     seed_wisski_clone || exit 1
   fi
 
-  # Images before restore-git-modes.sh seeded the volume with every tracked
-  # script at 644. Fix that once per clone; later deliberate mode edits stay.
-  local modesMarker="${WISSKI_MODULE_DIR}/.git/dockerwisski-modes-restored"
-  if [ -d "${WISSKI_MODULE_DIR}/.git" ] && [ ! -f "${modesMarker}" ] \
-    && [ -f /usr/local/bin/restore-git-modes.sh ]; then
-    bash /usr/local/bin/restore-git-modes.sh "${WISSKI_MODULE_DIR}"
-    touch "${modesMarker}"
-  fi
-
   if [ -f "${WISSKI_MODULE_DIR}/package.json" ] \
     && [ ! -x "${WISSKI_MODULE_DIR}/node_modules/.bin/cspell" ] \
     && command -v corepack >/dev/null 2>&1; then
@@ -353,38 +328,18 @@ ensure_wisski_dev_clone() {
 ensure_wisski_dev_clone
 
 # Development: `developer` is in www-data and edits via group write + setgid.
-# Named volumes (sites) and composer-installed packages often land as 755/644
-# without g+w; restore the bake-time layout. Ignore EROFS on optional :ro binds.
+# The image tree is group-writable from build time (umask 002, setgid). Only
+# the volume mount points start out root-owned without group write.
 ensure_dev_group_write() {
   if [ "${MODE}" != "development" ] || ! id developer >/dev/null 2>&1; then
     return 0
   fi
-  echo -e "\033[0;33mENSURING GROUP-WRITE FOR developer UNDER /opt/drupal...\033[0m"
-  chmod -R g+w /opt/drupal 2>/dev/null || true
-  find /opt/drupal -type d -exec chmod g+s {} + 2>/dev/null || true
-  find /opt/drupal/web -name .htaccess -exec chmod 444 {} + 2>/dev/null || true
-  if [ -f /opt/drupal/web/robots.txt ]; then
-    chmod 444 /opt/drupal/web/robots.txt 2>/dev/null || true
-  fi
-  if [ -d /opt/drupal/web/sites/default ]; then
-    chmod 775 /opt/drupal/web/sites/default 2>/dev/null || true
-    for file in settings.php services.yml settings.local.php; do
-      if [ -f "/opt/drupal/web/sites/default/${file}" ]; then
-        chmod 444 "/opt/drupal/web/sites/default/${file}" 2>/dev/null || true
-      fi
-    done
-  fi
+  chmod g+ws /opt/drupal/web/sites "${DRUPAL_PRIVATE_FILES_DIR}"
+  chmod -R g+w /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
+  find /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom -type d -exec chmod g+s {} +
 }
 
 ensure_dev_group_write
-
-# Composer cache must stay writable by www-data. `developer` (UID 1000) also
-# writes here; a top-level owner check missed nested 1000:1000 files and
-# `composer require` as www-data then died with Permission denied (502 behind Caddy).
-mkdir -p "${COMPOSER_HOME}/cache"
-chown -R www-data:www-data "${COMPOSER_HOME}"
-chmod -R 775 "${COMPOSER_HOME}"
-find "${COMPOSER_HOME}" -type d -exec chmod g+s {} + 2>/dev/null || true
 
 # Check if Drupal is already installed.
 echo -e "\033[0;33mCHECKING IF DRUPAL IS ALREADY INSTALLED.\033[0m"
@@ -406,6 +361,7 @@ if [ -f "$INSTALL_COMPLETE_FILE" ]; then
 
   ensure_default_triplestore || exit 1
   /usr/local/bin/sync-reverse-proxy.sh
+  bash /usr/local/bin/set-permissions.sh
 
 elif [ -f "$INSTALL_IN_PROGRESS_FILE" ]; then
   echo -e "\033[0;31mERROR: A previous installation attempt did not finish.\033[0m"
@@ -419,6 +375,7 @@ elif [ -f "$SETTINGS_FILE" ]; then
   touch "$INSTALL_COMPLETE_FILE"
   ensure_default_triplestore || exit 1
   /usr/local/bin/sync-reverse-proxy.sh
+  bash /usr/local/bin/set-permissions.sh
 
 else
   echo -e "\033[0;32mDRUPAL IS NOT INSTALLED.\033[0m\n"
@@ -487,11 +444,6 @@ else
 
   # Set private files directory.
   echo -e "\033[0;33mSETTING PRIVATE FILES DIRECTORY...\033[0m"
-  # Ensure the private files directory exists with proper permissions and ownership.
-  if [ ! -d "$DRUPAL_PRIVATE_FILES_DIR" ]; then
-    mkdir -p "${DRUPAL_PRIVATE_FILES_DIR}"
-    echo -e "\033[0;32mCreated private files directory: $DRUPAL_PRIVATE_FILES_DIR\033[0m"
-  fi
   {
     echo "\$settings[\"file_private_path\"] = \"$DRUPAL_PRIVATE_FILES_DIR\";" >> "${SETTINGS_FILE}"
   } 1> /dev/null
@@ -716,7 +668,6 @@ EOF
   # Set secure permissions following Drupal security guidelines.
   echo -e "\033[0;33mSET SECURE PERMISSIONS.\033[0m"
   bash /usr/local/bin/set-permissions.sh
-  ensure_dev_group_write
   echo -e "\033[0;32mSECURE PERMISSIONS SET.\033[0m\n"
 
   # Record the package set version the site was installed with.
@@ -734,10 +685,10 @@ fi
 sync_salz_adapter_urls
 
 echo -e "\033[0;33mAPPLYING SITE COMPOSER PACKAGES...\033[0m"
-if su -s /bin/bash www-data -c 'export COMPOSER_HOME=/var/composer-home; /usr/local/bin/apply-composer-local.sh'; then
+if /usr/local/bin/apply-composer-local.sh; then
   echo -e "\033[0;32mSITE COMPOSER PACKAGES APPLIED.\033[0m\n"
-  # Fresh composer installs drop group-write; restore for developer.
-  ensure_dev_group_write
+  # Packages Composer installed at boot come from zip archives (644/755).
+  /usr/local/bin/group-writable.sh
 else
   echo -e "\033[0;31mERROR: Failed to apply web/sites/composer.local.json onto this image.\033[0m"
   echo -e "\033[0;31mFix the extra package constraints or wait for a compatible image, then recreate the container.\033[0m"
@@ -844,7 +795,6 @@ trap shutdownServices TERM INT
 
 echo -e "\n"
 
-ensure_xdebug_log
 apply_runtime_performance
 start_php_fpm
 start_memcached
