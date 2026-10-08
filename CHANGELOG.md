@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
+
+## [6.1.0](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0) - 2026-10-08
 
 ### Changed
 - Development attach also supports Claude Code: named volume for `/home/developer/.claude`, optional binds from `.container-dev/claude/` onto `~/.claude/rules`, `~/.claude/skills`, `~/.claude/agents`, and `~/.claude/settings.json` (not into the WissKI clone). Same for Cursor under `~/.cursor/`. Entrypoint `chown` skips those `:ro` binds.
@@ -272,7 +274,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.0.1...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD
+[6.1.0]: https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0
 [6.0.1]: https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1
 [6.0.0]: https://github.com/rnsrk/dockerWissKI/compare/5.0.2...6.0.0
 [5.0.1]: https://github.com/rnsrk/dockerWissKI/compare/5.0.0...5.0.1
