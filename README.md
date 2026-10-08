@@ -181,6 +181,7 @@ env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
 drupal/                                 # PHP 8.5 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
+patches/opengdb/                        # patch for the OpenGDB authproxy, applied at build time
 wisski_data_importer/                   # git submodule (optional importer UI)
 config/caddy/Caddyfile                  # Caddy Host routes
 config/postgres/                        # Postgres init (pg_trgm)
@@ -223,6 +224,8 @@ git submodule update --remote opengdb
 ```
 
 Pin the new submodule commit in this repository when it works.
+
+The authproxy is built from the unchanged submodule and then patched with the files in [`patches/opengdb/`](patches/opengdb/) (`docker compose build authproxy`). The patch stops a refused RDF4J `PUT` from deleting an existing repository; [its README](patches/opengdb/README.md) has the details and the text for the upstream pull request. If a submodule update makes the patch fail to apply, check whether upstream already contains the fix.
 
 ## WissKI Data Importer
 

@@ -247,11 +247,23 @@ services:
       outproxy:
         condition: service_started
 
-  authproxy:
-    # Rebuild from ./opengdb/authproxy so RDF4J 6 PUT (201 / already-exists)
-    # keeps the Django repository row. `docker compose up --build` picks this up.
+  # Upstream authproxy, built unchanged from the opengdb submodule. Only the
+  # base of the patched authproxy below: scale 0, so it never starts.
+  authproxy-upstream:
     build:
       context: ./opengdb/authproxy
+    image: dockerwisski-authproxy-upstream
+    scale: 0
+
+  authproxy:
+    # Upstream authproxy plus patches/opengdb/*.patch, so RDF4J 6 PUT answers
+    # (201 / already-exists) keep the Django repository row. Drop the patch
+    # once upstream has it (see patches/opengdb/README.md).
+    build:
+      context: ./patches/opengdb
+      additional_contexts:
+        upstream: service:authproxy-upstream
+    image: dockerwisski-authproxy
     # OpenGDB uWSGI logs every SPARQL query string to stdout. Keep 4xx/5xx.
     command:
       - uwsgi

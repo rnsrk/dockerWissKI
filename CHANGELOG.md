@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
 
+### Fixed
+- The `opengdb` submodule pointed at a commit that exists only in one local checkout, so `git clone --recurse-submodules` failed. It is back on upstream `f072910`. The authproxy fix from that commit (a refused RDF4J `PUT` made authproxy delete the Django row and, through `pre_delete`, the existing RDF4J repository with its data) now lives in `patches/opengdb/` and is applied when building `authproxy`. The authproxy image is called `dockerwisski-authproxy` and is built from the new `authproxy-upstream` service (scale 0, never started). Run `docker compose build authproxy` once. The patch README has the text for the upstream pull request.
+
 ## [6.1.0](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0) - 2026-10-08
 
 ### Changed
