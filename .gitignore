@@ -20,3 +20,5 @@ private_files/
 .container-dev/*
 !.container-dev/wisski-vscode/
 !.container-dev/wisski-vscode/**
+
+ignore/
