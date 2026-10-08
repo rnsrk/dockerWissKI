@@ -97,6 +97,10 @@ A host clone bind-mounted on the same path in `docker-compose.override.yml` repl
 
 The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. Login shells reset `PATH` in `/etc/profile`; `/etc/profile.d/wisski-path.sh` puts that directory back. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
 
+### Working on the image itself
+
+The entrypoint, the Dockerfile, and `drupal/config/` are baked into the image; the development stack does not mount them from the repository. To try a change, build the image locally: append `docker-compose.local-build.yml` to `COMPOSE_FILE` and run `docker compose up -d --build drupal`, or `docker compose watch` to rebuild whenever something under `drupal/` changes. The branch image `dockerwisski-development:5.x` is rebuilt on every push.
+
 ### IDE attach (Cursor / VS Code / Claude Code)
 
 The development image is meant to be edited from inside: attach your IDE to the `drupal` service as user `developer`, open `/opt/drupal/web/modules/contrib/wisski`, and debug with Xdebug on `127.0.0.1:9003`. The setup (override file, persisted remote-server volumes, SSH keys, personal settings) is in [`docs/ide-attach.md`](docs/ide-attach.md). Shared workspace files are in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/).

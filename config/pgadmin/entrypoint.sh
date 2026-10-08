@@ -59,11 +59,6 @@ export PGPASS_FILE=/tmp/pgpass
 
 install_pgpass() {
   dest="/var/lib/pgadmin/.pgpass"
-  if [ "${PGADMIN_CONFIG_SERVER_MODE}" != "False" ]; then
-    user_dir="$(printf '%s' "${PGADMIN_DEFAULT_EMAIL}" | sed 's/@/_/g')"
-    mkdir -p "/var/lib/pgadmin/storage/${user_dir}"
-    dest="/var/lib/pgadmin/storage/${user_dir}/.pgpass"
-  fi
   cp /tmp/pgpass "${dest}"
   chmod 600 "${dest}"
   if [ "$(id -u)" = "0" ]; then
@@ -72,12 +67,10 @@ install_pgpass() {
 }
 
 # Image 8 skips load-servers after the first init; re-apply when .env changes.
+# Compose runs pgAdmin in desktop mode (PGADMIN_CONFIG_SERVER_MODE=False), so
+# there is one user and no per-user storage directory.
 if [ -f /var/lib/pgadmin/pgadmin4.db ]; then
-  if [ "${PGADMIN_CONFIG_SERVER_MODE}" = "False" ]; then
-    /venv/bin/python3 /pgadmin4/setup.py load-servers "${PGADMIN_SERVER_JSON_FILE}" --replace
-  else
-    /venv/bin/python3 /pgadmin4/setup.py load-servers "${PGADMIN_SERVER_JSON_FILE}" --replace --user "${PGADMIN_DEFAULT_EMAIL}"
-  fi
+  /venv/bin/python3 /pgadmin4/setup.py load-servers "${PGADMIN_SERVER_JSON_FILE}" --replace
   install_pgpass
 fi
 

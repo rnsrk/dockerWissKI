@@ -1,68 +1,90 @@
 #!/bin/bash
+# Container entrypoint (tini starts it as PID 1's child). On every start it:
+#   1. prepares the development user and the volumes,
+#   2. installs the site on the first start, or brings an existing one up to date,
+#   3. starts memcached, iipsrv, PHP-FPM, and nginx.
+# main at the bottom lists the steps in order.
 
 set -e
 
-# Enable debug mode if MODE environment variable is set to development.
-if [ "${MODE}" = "development" ]; then
-  echo -e "\033[0;32mDEVELOPMENT MODE ENABLED.\033[0m"
-fi
 # Trace every command only when explicitly requested (floods compose logs).
 if [ "${ENTRYPOINT_DEBUG:-}" = "1" ] || [ "${ENTRYPOINT_DEBUG:-}" = "true" ]; then
   set -x
 fi
 
-# Set Environment variables.
-
-# Set Composer home directory.
 export COMPOSER_HOME=/var/composer-home
 
 # Canonical path (do not use /var/www/html/sites/...). The php/nginx images
 # ship /var/www/html as a directory; a failed symlink would make this miss
-# the sites volume and skip SALZ / reverse-proxy sync on every boot.
+# the sites volume and skip the SALZ sync on every boot.
 SETTINGS_FILE="/opt/drupal/web/sites/default/settings.php"
 export SETTINGS_FILE
 
-# Marker files used to gate the install logic across container restarts.
-# They live in the sites volume because the rest of /opt/drupal is an
-# immutable, baked-in codebase that does not persist across recreations.
+# Marker files that gate the install logic across container restarts. They
+# live in the sites volume because the rest of /opt/drupal is the image's
+# codebase, which does not persist across recreations.
 INSTALL_COMPLETE_FILE="/opt/drupal/web/sites/.wisski-install-complete"
 INSTALL_IN_PROGRESS_FILE="/opt/drupal/web/sites/.wisski-install-in-progress"
 
 # Package set version baked into the image and the version the sites volume
-# was last updated to (used to trigger drush updatedb on image upgrades).
+# was last updated to (a difference triggers drush updatedb after an upgrade).
 IMAGE_PACKAGES_VERSION_FILE="/opt/drupal/.wisski-packages-version"
 SITE_PACKAGES_VERSION_FILE="/opt/drupal/web/sites/.wisski-packages-version"
 
 # Private files live outside the web root and are mounted as a volume.
 DRUPAL_PRIVATE_FILES_DIR="${DRUPAL_PRIVATE_FILES_DIR:-/opt/drupal/private-files}"
 
-# Install WissKI Environment.
-echo -e "\n \n \n"
-echo -e "\033[38;5;208mWW      WW   iii   sss   sss   KK   KK   III\033[0m"
-echo -e "\033[38;5;208mWW      WW   iii   sss   sss   KK  KK    III\033[0m"
-echo -e "\033[38;5;208mWW      WW   iii  ss    ss     KK KK     III\033[0m"
-echo -e "\033[38;5;208m WW WW WW    iii   sss   sss   KKKK      III\033[0m"
-echo -e "\033[38;5;208m WW WW WW    iii     ss    ss  KK KK     III\033[0m"
-echo -e "\033[38;5;208m  WW  WW     iii   sss   sss   KK  KK    III\033[0m"
-echo -e "\033[38;5;208m  WW  WW     iii   sss   sss   KK   KK   III\033[0m"
-echo -e "\n"
+WISSKI_MODULE_DIR="/opt/drupal/web/modules/contrib/wisski"
 
-echo -e "\033[0;32m+------------------------------+\033[0m"
-echo -e "\033[0;32m|WISSKI ENVIRONMENT ENTRYPOINT.|\033[0m"
-echo -e "\033[0;32m+------------------------------+\033[0m"
-echo -e "\n"
+# --- Log helpers -------------------------------------------------------------
+step() { echo -e "\033[0;33m$*\033[0m"; }
+ok()   { echo -e "\033[0;32m$*\033[0m\n"; }
+warn() { echo -e "\033[0;33mWARNING: $*\033[0m"; }
+err()  { echo -e "\033[0;31mERROR: $*\033[0m"; }
 
-echo "USER: $(whoami)"
-echo "PWD: $(pwd)"
+# Entrypoint Drush must not pay Xdebug overhead. php-fpm is started later and
+# does not inherit this function, so IDE debugging on port 9003 still works.
+drush() {
+  XDEBUG_MODE=off command drush "$@"
+}
+
+is_development() {
+  [ "${MODE}" = "development" ]
+}
+
+# --- Start-up checks and preparation ----------------------------------------
+banner() {
+  echo -e "\n \n \n"
+  echo -e "\033[38;5;208mWW      WW   iii   sss   sss   KK   KK   III\033[0m"
+  echo -e "\033[38;5;208mWW      WW   iii   sss   sss   KK  KK    III\033[0m"
+  echo -e "\033[38;5;208mWW      WW   iii  ss    ss     KK KK     III\033[0m"
+  echo -e "\033[38;5;208m WW WW WW    iii   sss   sss   KKKK      III\033[0m"
+  echo -e "\033[38;5;208m WW WW WW    iii     ss    ss  KK KK     III\033[0m"
+  echo -e "\033[38;5;208m  WW  WW     iii   sss   sss   KK  KK    III\033[0m"
+  echo -e "\033[38;5;208m  WW  WW     iii   sss   sss   KK   KK   III\033[0m"
+  echo -e "\n"
+  echo -e "\033[0;32m+------------------------------+\033[0m"
+  echo -e "\033[0;32m|WISSKI ENVIRONMENT ENTRYPOINT.|\033[0m"
+  echo -e "\033[0;32m+------------------------------+\033[0m"
+  echo -e "\n"
+  if is_development; then
+    echo -e "\033[0;32mDEVELOPMENT MODE ENABLED.\033[0m"
+  fi
+  echo "USER: $(whoami)"
+  echo "PWD: $(pwd)"
+}
 
 # Development: keep `developer` on the host UID so bind-mounted ~/.ssh and a
 # host WissKI clone are writable without copying keys. PID 1 stays root.
-if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
-  uid="${DEV_UID:-1000}"
-  gid="${DEV_GID:-1000}"
+prepare_developer_user() {
+  if ! is_development || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local uid="${DEV_UID:-1000}" gid="${DEV_GID:-1000}"
   case "${uid}" in
     0|33)
-      echo -e "\033[0;33mDEV_UID=${uid} is reserved (root/www-data); leaving developer unchanged.\033[0m"
+      step "DEV_UID=${uid} is reserved (root/www-data); leaving developer unchanged."
       ;;
     *)
       if [ "$(id -u developer)" != "${uid}" ]; then
@@ -78,11 +100,13 @@ if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
       ;;
   esac
   chown developer:developer /home/developer
+
   # Named IDE volumes start as root. Do not recurse into :ro binds (Machine
-  # settings.json, Cursor/Claude rules/skills/agents) — those are the same filesystem
-  # as the volume, so find -xdev would still try chown and spam EROFS.
-  chown_developer_volume() {
-    local root="$1"
+  # settings.json, Cursor/Claude rules/skills/agents): they are the same
+  # filesystem as the volume, so find -xdev would still try chown and spam EROFS.
+  local root
+  for root in /home/developer/.cursor-server /home/developer/.vscode-server \
+              /home/developer/.cursor /home/developer/.claude; do
     mkdir -p "${root}"
     chown developer:developer "${root}" 2>/dev/null || true
     find "${root}" \( \
@@ -92,164 +116,132 @@ if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
       -path "/home/developer/.claude/settings.json" -o \
       -path "${root}/data/Machine/settings.json" \
     \) -prune -o -exec chown developer:developer {} + 2>/dev/null || true
-  }
-  chown_developer_volume /home/developer/.cursor-server
-  chown_developer_volume /home/developer/.vscode-server
-  chown_developer_volume /home/developer/.cursor
-  chown_developer_volume /home/developer/.claude
-fi
-
-# Validate required environment variables.
-echo -e "\033[0;33mVALIDATING ENVIRONMENT VARIABLES...\033[0m"
-
-REQUIRED_VARS=(
-  "DB_DRIVER"
-  "DB_HOST"
-  "DB_NAME"
-  "DB_PASSWORD"
-  "DB_PORT"
-  "DB_USER"
-  "DRUPAL_DOMAIN"
-  "DRUPAL_LOCALE"
-  "DRUPAL_PASSWORD"
-  "DRUPAL_PRIVATE_FILES_DIR"
-  "DRUPAL_SITE_NAME"
-  "DRUPAL_TRUSTED_HOSTS"
-  "DRUPAL_USER"
-  "REDIS_HOST"
-  "REDIS_PORT"
-  "TS_REPOSITORY"
-  "TS_READ_URL"
-  "TS_WRITE_URL"
-  "TS_USERNAME"
-  "TS_PASSWORD"
-  "WISSKI_DEFAULT_GRAPH"
-)
+  done
+}
 
 # Recipe versions are baked into the image. WISSKI_STARTER_VERSION and
 # WISSKI_DEFAULT_DATA_MODEL_VERSION are optional flags (non-empty = apply).
-
-MISSING_VARS=()
-
-for var in "${REQUIRED_VARS[@]}"; do
-  if [ -z "${!var}" ]; then
-    MISSING_VARS+=("$var")
-  fi
-done
-
-if [ ${#MISSING_VARS[@]} -ne 0 ]; then
-  echo -e "\033[0;31mERROR: Missing required environment variables:\033[0m"
-  for var in "${MISSING_VARS[@]}"; do
-    echo -e "\033[0;31m  - $var\033[0m"
-  done
-  exit 1
-fi
-
-echo -e "\033[0;32mALL REQUIRED ENVIRONMENT VARIABLES ARE SET.\033[0m\n"
-
-# Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
-sync_salz_adapter_urls() {
-  if [ ! -f "${SETTINGS_FILE}" ]; then
-    return 0
-  fi
-  echo -e "\033[0;33mSYNCING SALZ ADAPTER ENDPOINTS (${TS_READ_URL})...\033[0m"
-  if drush php-eval '
-    $read = getenv("TS_READ_URL");
-    $write = getenv("TS_WRITE_URL");
-    if ($read === false || $read === "" || $write === false || $write === "") {
-      return;
-    }
-    $adapter = \Drupal::entityTypeManager()->getStorage("wisski_salz_adapter")->load("default");
-    if (!$adapter) {
-      return;
-    }
-    $config = $adapter->getEngine()->getConfiguration();
-    if (($config["read_url"] ?? "") === $read && ($config["write_url"] ?? "") === $write) {
-      return;
-    }
-    $config["read_url"] = $read;
-    $config["write_url"] = $write;
-    $adapter->setEngineConfig($config);
-    $adapter->save();
-  '; then
-    echo -e "\033[0;32mSALZ ADAPTER ENDPOINTS SYNCED.\033[0m\n"
-  else
-    echo -e "\033[0;33mSALZ ADAPTER ENDPOINT SYNC SKIPPED.\033[0m\n"
-  fi
-}
-
-# OpenGDB does not create repositories at its own start. Drupal POSTs
-# /rest/repositories (Django row + RDF4J store) and waits until SPARQL ASK
-# returns HTTP 200. Auth is HTTP Basic: TS_USERNAME / TS_PASSWORD (same as
-# the OpenGDB superuser). Do not put SPARQL tokens in .env.
-ensure_default_triplestore() {
-  local ts_auth=(-u "${TS_USERNAME}:${TS_PASSWORD}")
-  local ts_base ts_rest ts_body
-  local attempt=0 max_attempts=45
-  local post_code ask_code
-
-  ts_base="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
-  ts_rest="${ts_base}/rest/repositories"
-
-  ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
-    --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
-  if [ "${ask_code}" = "200" ]; then
-    echo -e "\033[0;32mDEFAULT TRIPLESTORE REPOSITORY READY.\033[0m\n"
-    return 0
-  fi
-
-  echo -e "\033[0;33mENSURING DEFAULT TRIPLESTORE REPOSITORY (${TS_REPOSITORY} via ${ts_rest})...\033[0m"
-  ts_body="$(mktemp)"
-  while [ "${attempt}" -lt "${max_attempts}" ]; do
-    post_code="$(curl -sS -o "${ts_body}" -w '%{http_code}' -X POST "${ts_rest}" "${ts_auth[@]}" \
-      -H 'Content-Type: application/json' \
-      --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
-    ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
-      --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
-    echo -e "\033[0;33mOpenGDB: POST ${ts_rest} -> HTTP ${post_code:-000}; SPARQL ASK -> HTTP ${ask_code:-000} (attempt $((attempt + 1))/${max_attempts})\033[0m"
-    if [ "${ask_code}" = "200" ]; then
-      rm -f "${ts_body}"
-      echo -e "\033[0;32mDEFAULT TRIPLESTORE REPOSITORY READY.\033[0m\n"
-      return 0
+validate_environment() {
+  step "VALIDATING ENVIRONMENT VARIABLES..."
+  local required=(
+    DB_DRIVER DB_HOST DB_NAME DB_PASSWORD DB_PORT DB_USER
+    DRUPAL_DOMAIN DRUPAL_LOCALE DRUPAL_PASSWORD DRUPAL_PRIVATE_FILES_DIR
+    DRUPAL_SITE_NAME DRUPAL_TRUSTED_HOSTS DRUPAL_USER
+    REDIS_HOST REDIS_PORT
+    TS_REPOSITORY TS_READ_URL TS_WRITE_URL TS_USERNAME TS_PASSWORD
+    WISSKI_DEFAULT_GRAPH
+  )
+  local missing=() var
+  for var in "${required[@]}"; do
+    if [ -z "${!var}" ]; then
+      missing+=("${var}")
     fi
-    sleep 2
-    attempt=$((attempt + 1))
   done
+  if [ ${#missing[@]} -ne 0 ]; then
+    err "Missing required environment variables:"
+    for var in "${missing[@]}"; do
+      echo -e "\033[0;31m  - ${var}\033[0m"
+    done
+    exit 1
+  fi
+  ok "ALL REQUIRED ENVIRONMENT VARIABLES ARE SET."
 
-  echo -e "\033[0;31mERROR: SPARQL ASK at ${TS_READ_URL} did not return HTTP 200.\033[0m"
-  echo -e "\033[0;31mLast POST ${ts_rest} body:\033[0m"
-  cat "${ts_body}" 2>/dev/null || true
-  rm -f "${ts_body}"
-  return 1
+  if is_development; then
+    step "ENVIRONMENT VARIABLES:"
+    env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG' || true
+    echo
+  fi
 }
 
-# key_value_expire is created lazily on write. update_storage_clear() DELETEs
-# it from hook_modules_installed. Postgres logs ERROR even though Drupal
-# swallows the missing-table exception.
-ensure_key_value_expire() {
-  if [ ! -f "${SETTINGS_FILE}" ]; then
+# The volumes start out root-owned. PHP-FPM (www-data) writes to all of them.
+prepare_volumes() {
+  chown www-data:www-data /opt/drupal/web/sites 2>/dev/null || true
+  mkdir -p "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
+  chown www-data:www-data "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
+}
+
+# Development: `developer` is in www-data and edits via group write + setgid.
+# The image tree is group-writable from build time (umask 002, setgid). Only
+# the volume mount points start out root-owned without group write.
+ensure_dev_group_write() {
+  if ! is_development || ! id developer >/dev/null 2>&1; then
     return 0
   fi
-  drush php-eval '
-    $schema = \Drupal::database()->schema();
-    if (!$schema->tableExists("key_value_expire")) {
-      $schema->createTable("key_value_expire", \Drupal\Core\KeyValueStore\DatabaseStorageExpirable::schemaDefinition());
+  chmod g+ws /opt/drupal/web/sites "${DRUPAL_PRIVATE_FILES_DIR}"
+  chmod -R g+w /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
+  find /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom -type d -exec chmod g+s {} +
+}
+
+# --- WissKI clone (development) ---------------------------------------------
+# The WissKI clone sits on its own volume (named volume from
+# docker-compose.development.yml, or a host bind from the override) so
+# branches, remotes, vendor/ and node_modules/ survive recreation and image
+# pulls. Docker seeds an empty named volume from the image; an empty host bind
+# is cloned here at the commit the image was built with.
+seed_wisski_clone() {
+  local packageSource url ref tmp
+  packageSource="$(php -r '
+    $installed = json_decode((string) file_get_contents("/opt/drupal/vendor/composer/installed.json"), true);
+    foreach ($installed["packages"] ?? [] as $package) {
+      if ($package["name"] === "drupal/wisski" && isset($package["source"]["url"])) {
+        echo $package["source"]["url"], " ", $package["source"]["reference"] ?? "";
+      }
     }
-  ' >/dev/null
+  ')"
+  read -r url ref <<< "${packageSource}"
+  if [ -z "${url}" ]; then
+    err "${WISSKI_MODULE_DIR} is empty and the image has no WissKI source URL to clone from."
+    return 1
+  fi
+
+  step "SEEDING WISSKI CLONE INTO ${WISSKI_MODULE_DIR} (${url} @ ${ref:-HEAD})..."
+  tmp="$(mktemp -d /tmp/wisski-seed.XXXXXX)"
+  chown developer "${tmp}"
+  # The system gitconfig rewrites drupalcode HTTPS to SSH; seeding must work
+  # without keys, so clone over HTTPS and let later fetch/push use SSH.
+  if ! su developer -s /bin/bash -c "GIT_CONFIG_NOSYSTEM=1 git clone --quiet '${url}' '${tmp}/wisski'"; then
+    rm -rf "${tmp}"
+    err "Could not clone ${url} into ${WISSKI_MODULE_DIR}."
+    return 1
+  fi
+  if [ -n "${ref}" ] && ! su developer -s /bin/bash -c "git -C '${tmp}/wisski' reset --quiet --hard '${ref}'"; then
+    warn "${ref} not found upstream; WissKI clone stays on the default branch HEAD."
+  fi
+  cp -a "${tmp}/wisski/." "${WISSKI_MODULE_DIR}/"
+  rm -rf "${tmp}"
+  chown developer:www-data "${WISSKI_MODULE_DIR}"
+  ok "WISSKI CLONE SEEDED."
 }
 
-if [ "${MODE}" = "development" ]; then
-  echo -e "\033[0;33mENVIRONMENT VARIABLES:\033[0m"
-  env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG' || true
-  echo
-fi
+ensure_wisski_dev_clone() {
+  if ! is_development || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
 
-# Entrypoint Drush must not pay Xdebug overhead. php-fpm is started later and
-# does not inherit this function, so IDE debugging on port 9003 still works.
-drush() {
-  XDEBUG_MODE=off command drush "$@"
+  mkdir -p "${WISSKI_MODULE_DIR}"
+  if [ ! -f "${WISSKI_MODULE_DIR}/wisski.info.yml" ]; then
+    seed_wisski_clone || exit 1
+  fi
+
+  if [ -f "${WISSKI_MODULE_DIR}/package.json" ] \
+    && [ ! -x "${WISSKI_MODULE_DIR}/node_modules/.bin/cspell" ] \
+    && command -v corepack >/dev/null 2>&1; then
+    step "INSTALLING WISSKI JS LINT TOOLS (yarn install)..."
+    if su developer -s /bin/bash -c "cd '${WISSKI_MODULE_DIR}' && corepack yarn install --immutable"; then
+      ok "WISSKI JS LINT TOOLS INSTALLED."
+    else
+      warn "yarn install failed in ${WISSKI_MODULE_DIR}; cspell/eslint/stylelint are unavailable."
+    fi
+  fi
+
+  if [ -d "${WISSKI_MODULE_DIR}/vendor/drupal/core" ]; then
+    warn "${WISSKI_MODULE_DIR}/vendor contains a second drupal/core (pulled in by drupal/potx)."
+    echo "PHPStan then aborts with \"Cannot redeclare t()\". The lint and test tools are in /opt/drupal/vendor;"
+    echo "remove ${WISSKI_MODULE_DIR}/vendor so misc/scripts/*.sh use them."
+  fi
 }
 
+# --- Settings generated from the environment --------------------------------
 # Quote a value as a single-quoted PHP string.
 php_quote() {
   local value="${1//\\/\\\\}"
@@ -278,7 +270,7 @@ write_docker_settings() {
   file="$(dirname "${SETTINGS_FILE}")/settings.docker.php"
   addresses="$(proxy_addresses)"
   if [ "${DRUPAL_PROXY_ADDRESSES:-}" = "auto" ] && [ -z "${addresses}" ]; then
-    echo -e "\033[0;33mWARNING: DRUPAL_PROXY_ADDRESSES=auto found no global IPv4 network; reverse proxy settings stay off.\033[0m"
+    warn "DRUPAL_PROXY_ADDRESSES=auto found no global IPv4 network; reverse proxy settings stay off."
   fi
 
   {
@@ -337,178 +329,268 @@ if (file_exists($app_root . '/' . $site_path . '/settings.docker.php')) {
 }
 PHP
   fi
-  echo -e "\033[0;32mDOCKER SETTINGS WRITTEN (reverse proxy: ${addresses:-off}).\033[0m\n"
+  ok "DOCKER SETTINGS WRITTEN (reverse proxy: ${addresses:-off})."
 }
 
-# Ensure the volume mounts are writable by the runtime user.
-chown www-data:www-data /opt/drupal/web/sites /opt/drupal/private-files 2>/dev/null || true
-mkdir -p "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
-chown www-data:www-data "${DRUPAL_PRIVATE_FILES_DIR}" /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
+# --- Triplestore and database ------------------------------------------------
+# OpenGDB does not create repositories at its own start. Drupal POSTs
+# /rest/repositories (Django row + RDF4J store) and waits until SPARQL ASK
+# returns HTTP 200. Auth is HTTP Basic: TS_USERNAME / TS_PASSWORD (same as
+# the OpenGDB superuser). Do not put SPARQL tokens in .env.
+ensure_default_triplestore() {
+  local ts_auth=(-u "${TS_USERNAME}:${TS_PASSWORD}")
+  local ts_base ts_rest ts_body
+  local attempt=0 max_attempts=45
+  local post_code ask_code
 
-# Development: the WissKI clone sits on its own volume (named volume from
-# docker-compose.development.yml, or a host bind from the override) so
-# branches, remotes, vendor/ and node_modules/ survive recreation and image
-# pulls. Docker seeds an empty named volume from the image; an empty host bind
-# is cloned here at the commit the image was built with.
-WISSKI_MODULE_DIR="/opt/drupal/web/modules/contrib/wisski"
+  ts_base="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
+  ts_rest="${ts_base}/rest/repositories"
 
-seed_wisski_clone() {
-  local packageSource url ref tmp
-  packageSource="$(php -r '
-    $installed = json_decode((string) file_get_contents("/opt/drupal/vendor/composer/installed.json"), true);
-    foreach ($installed["packages"] ?? [] as $package) {
-      if ($package["name"] === "drupal/wisski" && isset($package["source"]["url"])) {
-        echo $package["source"]["url"], " ", $package["source"]["reference"] ?? "";
-      }
-    }
-  ')"
-  read -r url ref <<< "${packageSource}"
-  if [ -z "${url}" ]; then
-    echo -e "\033[0;31mERROR: ${WISSKI_MODULE_DIR} is empty and the image has no WissKI source URL to clone from.\033[0m"
-    return 1
-  fi
-
-  echo -e "\033[0;33mSEEDING WISSKI CLONE INTO ${WISSKI_MODULE_DIR} (${url} @ ${ref:-HEAD})...\033[0m"
-  tmp="$(mktemp -d /tmp/wisski-seed.XXXXXX)"
-  chown developer "${tmp}"
-  # The system gitconfig rewrites drupalcode HTTPS to SSH; seeding must work
-  # without keys, so clone over HTTPS and let later fetch/push use SSH.
-  if ! su developer -s /bin/bash -c "GIT_CONFIG_NOSYSTEM=1 git clone --quiet '${url}' '${tmp}/wisski'"; then
-    rm -rf "${tmp}"
-    echo -e "\033[0;31mERROR: Could not clone ${url} into ${WISSKI_MODULE_DIR}.\033[0m"
-    return 1
-  fi
-  if [ -n "${ref}" ] && ! su developer -s /bin/bash -c "git -C '${tmp}/wisski' reset --quiet --hard '${ref}'"; then
-    echo -e "\033[0;33mWARNING: ${ref} not found upstream; WissKI clone stays on the default branch HEAD.\033[0m"
-  fi
-  cp -a "${tmp}/wisski/." "${WISSKI_MODULE_DIR}/"
-  rm -rf "${tmp}"
-  chown developer:www-data "${WISSKI_MODULE_DIR}"
-  echo -e "\033[0;32mWISSKI CLONE SEEDED.\033[0m\n"
-}
-
-ensure_wisski_dev_clone() {
-  if [ "${MODE}" != "development" ] || ! id developer >/dev/null 2>&1; then
+  ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
+    --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
+  if [ "${ask_code}" = "200" ]; then
+    ok "DEFAULT TRIPLESTORE REPOSITORY READY."
     return 0
   fi
 
-  mkdir -p "${WISSKI_MODULE_DIR}"
-  if [ ! -f "${WISSKI_MODULE_DIR}/wisski.info.yml" ]; then
-    seed_wisski_clone || exit 1
-  fi
-
-  if [ -f "${WISSKI_MODULE_DIR}/package.json" ] \
-    && [ ! -x "${WISSKI_MODULE_DIR}/node_modules/.bin/cspell" ] \
-    && command -v corepack >/dev/null 2>&1; then
-    echo -e "\033[0;33mINSTALLING WISSKI JS LINT TOOLS (yarn install)...\033[0m"
-    if su developer -s /bin/bash -c "cd '${WISSKI_MODULE_DIR}' && corepack yarn install --immutable"; then
-      echo -e "\033[0;32mWISSKI JS LINT TOOLS INSTALLED.\033[0m\n"
-    else
-      echo -e "\033[0;33mWARNING: yarn install failed in ${WISSKI_MODULE_DIR}; cspell/eslint/stylelint are unavailable.\033[0m\n"
+  step "ENSURING DEFAULT TRIPLESTORE REPOSITORY (${TS_REPOSITORY} via ${ts_rest})..."
+  ts_body="$(mktemp)"
+  while [ "${attempt}" -lt "${max_attempts}" ]; do
+    post_code="$(curl -sS -o "${ts_body}" -w '%{http_code}' -X POST "${ts_rest}" "${ts_auth[@]}" \
+      -H 'Content-Type: application/json' \
+      --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
+    ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
+      --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
+    step "OpenGDB: POST ${ts_rest} -> HTTP ${post_code:-000}; SPARQL ASK -> HTTP ${ask_code:-000} (attempt $((attempt + 1))/${max_attempts})"
+    if [ "${ask_code}" = "200" ]; then
+      rm -f "${ts_body}"
+      ok "DEFAULT TRIPLESTORE REPOSITORY READY."
+      return 0
     fi
-  fi
-
-  if [ -d "${WISSKI_MODULE_DIR}/vendor/drupal/core" ]; then
-    echo -e "\033[0;33mWARNING: ${WISSKI_MODULE_DIR}/vendor contains a second drupal/core (pulled in by drupal/potx).\033[0m"
-    echo -e "\033[0;33mPHPStan then aborts with \"Cannot redeclare t()\". The lint and test tools are in /opt/drupal/vendor;\033[0m"
-    echo -e "\033[0;33mremove ${WISSKI_MODULE_DIR}/vendor so misc/scripts/*.sh use them.\033[0m\n"
-  fi
-}
-
-ensure_wisski_dev_clone
-
-# Development: `developer` is in www-data and edits via group write + setgid.
-# The image tree is group-writable from build time (umask 002, setgid). Only
-# the volume mount points start out root-owned without group write.
-ensure_dev_group_write() {
-  if [ "${MODE}" != "development" ] || ! id developer >/dev/null 2>&1; then
-    return 0
-  fi
-  chmod g+ws /opt/drupal/web/sites "${DRUPAL_PRIVATE_FILES_DIR}"
-  chmod -R g+w /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom
-  find /opt/drupal/web/modules/custom /opt/drupal/web/themes/custom -type d -exec chmod g+s {} +
-}
-
-ensure_dev_group_write
-
-# Check if Drupal is already installed.
-echo -e "\033[0;33mCHECKING IF DRUPAL IS ALREADY INSTALLED.\033[0m"
-if [ -f "$INSTALL_COMPLETE_FILE" ]; then
-  echo -e "\033[0;32mDRUPAL IS ALREADY INSTALLED.\033[0m\n"
-  ensure_key_value_expire
-
-  # Run database updates when the image ships a newer package set than the
-  # one the site was installed or last updated with.
-  imagePackagesVersion="$(cat "${IMAGE_PACKAGES_VERSION_FILE}" 2>/dev/null || echo "unknown")"
-  sitePackagesVersion="$(cat "${SITE_PACKAGES_VERSION_FILE}" 2>/dev/null || echo "unknown")"
-  if [ "${imagePackagesVersion}" != "${sitePackagesVersion}" ]; then
-    echo -e "\033[0;33mPACKAGE SET CHANGED (${sitePackagesVersion} -> ${imagePackagesVersion}); RUNNING DATABASE UPDATES...\033[0m"
-    drush updatedb -y
-    drush cr
-    echo "${imagePackagesVersion}" > "${SITE_PACKAGES_VERSION_FILE}"
-    echo -e "\033[0;32mDATABASE UPDATES APPLIED.\033[0m\n"
-  fi
-
-  ensure_default_triplestore || exit 1
-  write_docker_settings
-  bash /usr/local/bin/set-permissions.sh
-
-elif [ -f "$INSTALL_IN_PROGRESS_FILE" ]; then
-  echo -e "\033[0;31mERROR: A previous installation attempt did not finish.\033[0m"
-  echo -e "\033[0;31mThe site may be half-configured. Wipe the volumes (database and ${INSTALL_IN_PROGRESS_FILE%/*}) to reinstall,\033[0m"
-  echo -e "\033[0;31mor finish the configuration manually and create ${INSTALL_COMPLETE_FILE} (and remove ${INSTALL_IN_PROGRESS_FILE}).\033[0m"
-  exit 1
-
-elif [ -f "$SETTINGS_FILE" ]; then
-  # Legacy installation created before marker files were introduced.
-  echo -e "\033[0;32mDRUPAL IS ALREADY INSTALLED (LEGACY INSTALLATION DETECTED; CREATING MARKER FILE).\033[0m\n"
-  touch "$INSTALL_COMPLETE_FILE"
-  ensure_default_triplestore || exit 1
-  write_docker_settings
-  bash /usr/local/bin/set-permissions.sh
-
-else
-  echo -e "\033[0;32mDRUPAL IS NOT INSTALLED.\033[0m\n"
-  touch "$INSTALL_IN_PROGRESS_FILE"
-
-  # Check database connection first.
-  echo -e "\033[0;33mCHECKING DATABASE CONNECTION...\033[0m"
-
-  # Wait for database to be ready with timeout.
-  DB_READY=false
-  MAX_ATTEMPTS=30
-  ATTEMPT=0
-
-  while [ $ATTEMPT -lt $MAX_ATTEMPTS ] && [ "$DB_READY" = false ]; do
-    if PGPASSWORD="${DB_PASSWORD}" pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" >/dev/null 2>&1; then
-      DB_READY=true
-      echo -e "\033[0;32mDATABASE CONNECTION SUCCESSFUL.\033[0m"
-    else
-      echo -e "\033[0;33mWaiting for database... (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)\033[0m"
-      sleep 2
-      ATTEMPT=$((ATTEMPT + 1))
-    fi
+    sleep 2
+    attempt=$((attempt + 1))
   done
 
-  if [ "$DB_READY" = false ]; then
-    echo -e "\033[0;31mERROR: Could not connect to database after $MAX_ATTEMPTS attempts.\033[0m"
-    echo -e "\033[0;31mDB_HOST: ${DB_HOST}\033[0m"
-    echo -e "\033[0;31mDB_PORT: ${DB_PORT}\033[0m"
-    echo -e "\033[0;31mDB_USER: ${DB_USER}\033[0m"
-    echo -e "\033[0;31mDB_NAME: ${DB_NAME}\033[0m"
-    exit 1
+  err "SPARQL ASK at ${TS_READ_URL} did not return HTTP 200."
+  step "Last POST ${ts_rest} body:"
+  cat "${ts_body}" 2>/dev/null || true
+  rm -f "${ts_body}"
+  return 1
+}
+
+wait_for_database() {
+  step "CHECKING DATABASE CONNECTION..."
+  local attempt max_attempts=30
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if PGPASSWORD="${DB_PASSWORD}" pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" >/dev/null 2>&1; then
+      ok "DATABASE CONNECTION SUCCESSFUL."
+      return 0
+    fi
+    step "Waiting for database... (attempt ${attempt}/${max_attempts})"
+    sleep 2
+  done
+  err "Could not connect to database after ${max_attempts} attempts."
+  echo "DB_HOST: ${DB_HOST}  DB_PORT: ${DB_PORT}  DB_USER: ${DB_USER}  DB_NAME: ${DB_NAME}"
+  return 1
+}
+
+# key_value_expire is created lazily on write. update_storage_clear() DELETEs
+# it from hook_modules_installed. Postgres logs ERROR even though Drupal
+# swallows the missing-table exception.
+ensure_key_value_expire() {
+  if [ ! -f "${SETTINGS_FILE}" ]; then
+    return 0
   fi
+  drush php-eval '
+    $schema = \Drupal::database()->schema();
+    if (!$schema->tableExists("key_value_expire")) {
+      $schema->createTable("key_value_expire", \Drupal\Core\KeyValueStore\DatabaseStorageExpirable::schemaDefinition());
+    }
+  ' >/dev/null
+}
+
+# Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
+sync_salz_adapter_urls() {
+  if [ ! -f "${SETTINGS_FILE}" ]; then
+    return 0
+  fi
+  step "SYNCING SALZ ADAPTER ENDPOINTS (${TS_READ_URL})..."
+  if drush php-eval '
+    $read = getenv("TS_READ_URL");
+    $write = getenv("TS_WRITE_URL");
+    if ($read === false || $read === "" || $write === false || $write === "") {
+      return;
+    }
+    $adapter = \Drupal::entityTypeManager()->getStorage("wisski_salz_adapter")->load("default");
+    if (!$adapter) {
+      return;
+    }
+    $config = $adapter->getEngine()->getConfiguration();
+    if (($config["read_url"] ?? "") === $read && ($config["write_url"] ?? "") === $write) {
+      return;
+    }
+    $config["read_url"] = $read;
+    $config["write_url"] = $write;
+    $adapter->setEngineConfig($config);
+    $adapter->save();
+  '; then
+    ok "SALZ ADAPTER ENDPOINTS SYNCED."
+  else
+    warn "SALZ adapter endpoint sync skipped."
+  fi
+}
+
+# --- First installation ------------------------------------------------------
+# Entity bundle and field IDs the DLF AIM 3D Viewer module ships as its own
+# defaults (config/install/dlf_aim_3d_viewer.settings.yml).
+DLF_ENTITY_BUNDLE="bd3d7baa74856d141bcff7b4193fa128"
+DLF_VIEWER_FILE_UPLOAD_FIELD="fbf95bddee5160d515b982b3fd2e05f7"
+DLF_VIEWER_FILE_NAME_FIELD="faa602a0be629324806aef22892cdbe5"
+
+# Permissions of the wisski_user role. One that this install does not define
+# (for example from a module that is not part of the image) is skipped.
+WISSKI_USER_PERMISSIONS=(
+  'access toolbar'
+  'access navigate'
+  'access create'
+  'access find'
+  'create any wisski content'
+  'view any wisski content'
+  'view published wisski content'
+  'view own unpublished wisski content'
+  'view other unpublished wisski content'
+  'view wisski revisions'
+  'revert wisski revisions'
+  'edit any wisski content'
+  'delete any wisski content'
+  'access wisski manifests'
+  'wisski_adapter_sparql11_pb.query'
+)
+
+grant_wisski_user_permissions() {
+  step "GRANTING WISSKI USER PERMISSIONS."
+  if ! drush pm:list --status=enabled --type=module --filter=toolbar --format=list 2>/dev/null | grep -qx toolbar; then
+    drush en toolbar -y || warn "toolbar module not enabled; access toolbar will be skipped."
+  fi
+  local perm
+  for perm in "${WISSKI_USER_PERMISSIONS[@]}"; do
+    drush role:perm:add wisski_user "${perm}" -y || warn "permission not defined, skipped: ${perm}"
+  done
+  ok "WISSKI USER PERMISSIONS GRANTED."
+}
+
+# German comes from the recipe's language config and the WissKI .po files.
+# locale-check / locale-update are skipped on purpose: they download every
+# contrib translation into the DB (minutes and gigabytes of WAL). Run
+# `drush locale-update` later if you need them.
+add_german_translations() {
+  step "ADD GERMAN LANGUAGE AND IMPORT SHIPPED TRANSLATIONS."
+  drush language-add de
+  drush php-eval "
+    \$source = new \Drupal\Core\Config\FileStorage('/opt/drupal/recipes/wisski_default_data_model/config/language/de');
+    \$langStorage = \Drupal::service('config.storage')->createCollection('language.de');
+    foreach (\$source->listAll() as \$name) {
+      \$langStorage->write(\$name, \$source->read(\$name));
+    }
+  "
+  find "${WISSKI_MODULE_DIR}" -name '*.de.po' -type f -print0 | while IFS= read -r -d '' po; do
+    drush locale:import de "${po}" --type=not-customized --override=all -y
+  done
+  step "RECREATE WISSKI MAIN MENU."
+  drush wisski-core:recreate-menus
+  ok "TRANSLATIONS UPDATED."
+}
+
+# Disable the WissKI main menu links (menu: main). Config stores encoded keys
+# (dots -> __), so use the API. Create, Navigate, and Find.
+disable_wisski_main_menu_links() {
+  step "DISABLE WISSKI MAIN MENU LINKS."
+  drush php-eval "
+    \$o = \\Drupal::service('menu_link.static.overrides');
+    foreach (['wisski.create_entities', 'wisski.browse_entities', 'wisski.search_entities'] as \$id) {
+      \$o->saveOverride(\$id, ['enabled' => FALSE]);
+    }
+  "
+  ok "WISSKI MAIN MENU LINKS DISABLED."
+}
+
+configure_dlf_3d_viewer() {
+  step "SET DLF AIM 3D VIEWER SETTINGS."
+  drush dlf_aim_3d_viewer:configure \
+    --main-url="https://${DRUPAL_DOMAIN}" \
+    --container=DLF_AIM_3DViewer \
+    --entitybundle="${DLF_ENTITY_BUNDLE}" \
+    --viewer-file-upload="${DLF_VIEWER_FILE_UPLOAD_FIELD}" \
+    --viewer-file-name="${DLF_VIEWER_FILE_NAME_FIELD}" \
+    --lightweight=1 \
+    --scale-container-x=1 \
+    --scale-container-y=1.4 \
+    --base-module-path=/libraries/dlf_aim_3d_viewer/dist/drupal/main/assets \
+    --entity-id-uri='/wisski/navigate/(.*)/view' \
+    --view-entity-path=/wisski/navigate/ \
+    --attribute-id=wisski_id
+  ok "DLF AIM 3D VIEWER SETTINGS SET."
+}
+
+# Everything that needs the triplestore and the WissKI default data model.
+install_default_data_model() {
+  step "INSTALL DEFAULT TRIPLESTORE ADAPTER."
+  drush wisski-salz:create-adapter --type='sparql11_with_pb' --adapter_label='Default' --adapter_machine_name='default' --description='Default SALZ adapter' --ts_machine_name="${TS_REPOSITORY}" --ts_use_token=0 --ts_user="${TS_USERNAME}" --ts_password="${TS_PASSWORD}" --writable=1 --preferred=1 --read_url="${TS_READ_URL}" --write_url="${TS_WRITE_URL}" --federatable=0 --default_graph="${WISSKI_DEFAULT_GRAPH}" --same_as='http://www.w3.org/2002/07/owl#sameAs' >/dev/null
+  drush cr
+  ok "DEFAULT TRIPLESTORE ADAPTER INSTALLED."
+
+  step "IMPORT WISSKI DEFAULT ONTOLOGY."
+  drush wisski-core:import-ontology --store='default' --ontology_url='https://wiss-ki.eu/ontology/default/2.5.0/' --reasoning
+  ok "WISSKI DEFAULT ONTOLOGY IMPORTED."
+
+  # The recipe package is shipped in the image.
+  step "APPLY WISSKI DEFAULT DATA MODEL RECIPE."
+  drush recipe ../recipes/wisski_default_data_model
+  ok "WISSKI DEFAULT DATA MODEL RECIPE APPLIED."
+
+  add_german_translations
+  disable_wisski_main_menu_links
+  configure_dlf_3d_viewer
+
+  step "SET IIIF CONFIGS."
+  drush config-set wisski_iip_image.wisski_iiif_settings iiif_server "https://${DRUPAL_DOMAIN}/fcgi-bin/iipsrv.fcgi?IIIF="
+  ok "IIIF CONFIGS SET."
+
+  grant_wisski_user_permissions
+
+  step "CLEAR CACHE."
+  drush cr
+  ok "CACHE CLEARED."
+}
+
+# IMCE profiles: members get their own folder, administrators the admin profile.
+set_imce_profiles() {
+  step "SET IMCE PROFILES."
+  local pair role profile
+  for pair in authenticated:member administrator:admin wisski_user:member; do
+    role="${pair%%:*}"
+    profile="${pair##*:}"
+    drush config-set imce.settings "roles_profiles.${role}.public" "${profile}" -y >/dev/null
+    drush config-set imce.settings "roles_profiles.${role}.private" "${profile}" -y >/dev/null
+  done
+  drush config-set --input-format=yaml imce.profile.member conf.folders '[{path: "users/user[user:name]", permissions: {all: true}}]' -y >/dev/null
+  ok "IMCE PROFILES SET."
+}
+
+install_site() {
+  ok "DRUPAL IS NOT INSTALLED."
+  touch "${INSTALL_IN_PROGRESS_FILE}"
+
+  wait_for_database || exit 1
 
   # Create OpenGDB `default` before recipes/SPARQL. Authproxy is already healthy.
   # If this fails, drop the in-progress marker so the next start can retry site-install.
   if ! ensure_default_triplestore; then
-    rm -f "$INSTALL_IN_PROGRESS_FILE"
+    rm -f "${INSTALL_IN_PROGRESS_FILE}"
     exit 1
   fi
 
-  # Install the site with timeout.
-  echo -e "\033[0;33mINSTALLING DRUPAL SITE...\033[0m"
-
+  step "INSTALLING DRUPAL SITE..."
   if timeout 300 drush si \
     --db-url="${DB_DRIVER}://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}" \
     --site-name="${DRUPAL_SITE_NAME}" \
@@ -516,245 +598,145 @@ else
     --account-pass="${DRUPAL_PASSWORD}" \
     --locale="${DRUPAL_LOCALE}" \
     --yes 2>&1; then
-    echo -e "\033[0;32mDRUPAL SITE \"${DRUPAL_SITE_NAME}\" INSTALLED.\033[0m\n"
+    ok "DRUPAL SITE \"${DRUPAL_SITE_NAME}\" INSTALLED."
     ensure_key_value_expire
   else
-    echo -e "\033[0;31mERROR: Drupal installation failed or timed out after 5 minutes.\033[0m"
-    echo -e "\033[0;31mCheck database connection and credentials.\033[0m"
+    err "Drupal installation failed or timed out after 5 minutes."
+    echo "Check database connection and credentials."
     exit 1
   fi
 
   # Trusted hosts, private files path, Redis include, and reverse proxy.
   write_docker_settings
 
-  # Page cache: Varnish in production; disable in development so edits show immediately.
-  if [ "${MODE}" = "development" ]; then
-    echo -e "\033[0;33mDISABLING PAGE CACHE (DEVELOPMENT).\033[0m"
+  # Page cache: Varnish in production; disabled in development so edits show immediately.
+  if is_development; then
     drush config:set system.performance cache.page.max_age 0 -y >/dev/null
-    echo -e "\033[0;32mPAGE CACHE DISABLED.\033[0m\n"
+    ok "PAGE CACHE DISABLED (DEVELOPMENT)."
   else
-    echo -e "\033[0;33mENABLING PAGE CACHE FOR VARNISH...\033[0m"
     drush config:set system.performance cache.page.max_age 300 -y >/dev/null
-    echo -e "\033[0;32mPAGE CACHE ENABLED (5 minutes).\033[0m\n"
+    ok "PAGE CACHE ENABLED FOR VARNISH (5 minutes)."
   fi
 
-  # Enable single content sync module (shipped in the image).
-  echo -e "\033[0;33mENABLE SINGLE CONTENT SYNC MODULE.\033[0m"
-  {
-    drush en single_content_sync -y
-  } 1> /dev/null
-  echo -e "\033[0;32mSINGLE CONTENT SYNC MODULE ENABLED.\033[0m\n"
-
-  # Enable development modules (development mode only; devel must not run in production).
-  if [ "${MODE}" = "development" ]; then
-    echo -e "\033[0;33mENABLE DEVELOPMENT MODULES.\033[0m"
-    {
-      drush en devel -y
-    } 1> /dev/null
-    echo -e "\033[0;32mDEVELOPMENT MODULES ENABLED.\033[0m\n"
-  else
-    echo -e "\033[0;33mDEVELOPMENT MODULES SKIPPED\033[0m\n"
+  # Modules shipped in the image: single content sync, the health check
+  # endpoint, and the Sophron MIME type guesser (from the imagemagick
+  # dependency tree). devel must never run in production.
+  local modules=(single_content_sync health_check sophron_guesser)
+  if is_development; then
+    modules+=(devel)
   fi
+  step "ENABLE MODULES: ${modules[*]}."
+  drush en "${modules[@]}" -y >/dev/null
+  ok "MODULES ENABLED."
 
-  # Enable health check module (shipped in the image).
-  echo -e "\033[0;33mENABLE HEALTH CHECK MODULE.\033[0m"
-  {
-    drush en health_check -y
-  } 1> /dev/null
-  echo -e "\033[0;32mHEALTH CHECK MODULE ENABLED.\033[0m\n"
+  step "CREATE WISSKI USER ROLE."
+  drush role:create 'wisski_user' 'WissKI User' -y >/dev/null
+  ok "WISSKI USER ROLE CREATED."
 
-  # Enable Sophron MIME type guesser (shipped with imagemagick dependency tree).
-  echo -e "\033[0;33mENABLE SOPHRON GUESSER MODULE.\033[0m"
-  {
-    drush en sophron_guesser -y
-  } 1> /dev/null
-  echo -e "\033[0;32mSOPHRON GUESSER MODULE ENABLED.\033[0m\n"
-
-  # Create WissKI User Role.
-  echo -e "\033[0;33mCREATE WISSKI USER ROLE.\033[0m"
-  {
-    drush role:create 'wisski_user' 'WissKI User' -y
-  } 1> /dev/null
-  echo -e "\033[0;32mWISSKI USER GROUP CREATED.\033[0m\n"
-
-  # Apply WissKI Starter recipe (recipe package is shipped in the image).
+  # The recipe packages are shipped in the image.
   drush cr
   if [ -n "${WISSKI_STARTER_VERSION}" ]; then
-    echo -e "\033[0;33mAPPLY WISSKI STARTER RECIPE.\033[0m"
-      drush recipe ../recipes/wisski_starter
-    echo -e "\033[0;32mWISSKI STARTER RECIPE APPLIED.\033[0m\n"
+    step "APPLY WISSKI STARTER RECIPE."
+    drush recipe ../recipes/wisski_starter
+    ok "WISSKI STARTER RECIPE APPLIED."
   else
-    echo -e "\033[0;33mWISSKI STARTER RECIPE SKIPPED\033[0m\n"
+    ok "WISSKI STARTER RECIPE SKIPPED."
   fi
   if [ -n "${WISSKI_DEFAULT_DATA_MODEL_VERSION}" ]; then
-    echo -e "\033[0;33mINSTALL DEFAULT TRIPLESTORE ADAPTER.\033[0m"
-      drush wisski-salz:create-adapter --type='sparql11_with_pb' --adapter_label='Default' --adapter_machine_name='default' --description='Default SALZ adapter' --ts_machine_name="${TS_REPOSITORY}" --ts_use_token=0 --ts_user="${TS_USERNAME}" --ts_password="${TS_PASSWORD}" --writable=1 --preferred=1 --read_url="${TS_READ_URL}" --write_url="${TS_WRITE_URL}" --federatable=0 --default_graph="${WISSKI_DEFAULT_GRAPH}" --same_as='http://www.w3.org/2002/07/owl#sameAs' 1> /dev/null
-      drush cr
-    echo -e "\033[0;32mDEFAULT TRIPLESTORE ADAPTER INSTALLED.\033[0m\n"
-
-    echo -e "\033[0;33mIMPORT WISSKI DEFAULT ONTOLOGY.\033[0m"
-    drush wisski-core:import-ontology --store='default' --ontology_url='https://wiss-ki.eu/ontology/default/2.5.0/' --reasoning
-    echo -e "\033[0;32mWISSKI DEFAULT ONTOLOGY IMPORTED.\033[0m\n"
-
-    # Apply WissKI Default Data Model recipe (recipe package is shipped in the image).
-    echo -e "\033[0;33mAPPLY WISSKI DATA DEFAULT MODEL RECIPE.\033[0m"
-      drush recipe ../recipes/wisski_default_data_model
-      echo -e "\033[0;32mWISSKI DATA DEFAULT MODEL RECIPE APPLIED.\033[0m\n"
-
-      echo -e "\033[0;33mAdd German language and import shipped translations.\033[0m\n"
-
-      # Enable German from recipe config and WissKI .po files. Skip locale-check /
-      # locale-update: they download every contrib translation into the DB (~minutes
-      # and gigabytes of WAL). Run `drush locale-update` later if you need them.
-      drush language-add de
-      drush php-eval "
-        \$source = new \Drupal\Core\Config\FileStorage('/opt/drupal/recipes/wisski_default_data_model/config/language/de');
-        \$langStorage = \Drupal::service('config.storage')->createCollection('language.de');
-        foreach (\$source->listAll() as \$name) {
-          \$langStorage->write(\$name, \$source->read(\$name));
-        }
-        "
-      
-      find /opt/drupal/web/modules/contrib/wisski -name '*.de.po' -type f -print0 | while IFS= read -r -d '' po; do
-        drush locale:import de "$po" --type=not-customized --override=all -y
-      done
-
-      echo -e "\033[0;33mRECREATE WISSKI MAIN MENU.\033[0m\n"
-        drush wisski-core:recreate-menus    
-      echo -e "\033[0;32mTRANSLATIONS UPDATED.\033[0m\n"
-
-      echo -e "\033[0;33mDISABLE WISSKI MAIN MENU LINKS.\033[0m\n"
-      # Disable WissKI main menu links (menu: main). Config stores encoded keys (dots -> __); use the API.
-      # Create  main  wisski.create_entities | Navigate  main  wisski.browse_entities | Find  main  wisski.search_entities
-      drush php-eval "
-        \$o = \\Drupal::service('menu_link.static.overrides');
-        foreach (['wisski.create_entities', 'wisski.browse_entities', 'wisski.search_entities'] as \$id) {
-          \$o->saveOverride(\$id, ['enabled' => FALSE]);
-        }
-        "
-      echo -e "\033[0;32mWISSKI MAIN MENU LINKS DISABLED.\033[0m\n"
-
-      # Set DLF AIM 3D Viewer settings.
-      echo -e "\033[0;33mSET DLF AIM 3D VIEWER SETTINGS.\033[0m\n"
-      drush dlf_aim_3d_viewer:configure \
-        --main-url=https://${DRUPAL_DOMAIN} \
-        --container=DLF_AIM_3DViewer \
-        --entitybundle=bd3d7baa74856d141bcff7b4193fa128 \
-        --viewer-file-upload=fbf95bddee5160d515b982b3fd2e05f7 \
-        --viewer-file-name=faa602a0be629324806aef22892cdbe5 \
-        --lightweight=1 \
-        --scale-container-x=1 \
-        --scale-container-y=1.4 \
-        --base-module-path=/libraries/dlf_aim_3d_viewer/dist/drupal/main/assets \
-        --entity-id-uri='/wisski/navigate/(.*)/view' \
-        --view-entity-path=/wisski/navigate/ \
-        --attribute-id=wisski_id
-      echo -e "\033[0;32mDLF AIM 3D VIEWER SETTINGS SET.\033[0m\n"
-
-      echo -e "\033[0;33mSet IIIF configs.\033[0m"
-      drush config-set wisski_iip_image.wisski_iiif_settings iiif_server "https://${DRUPAL_DOMAIN}/fcgi-bin/iipsrv.fcgi?IIIF="
-      echo -e "\033[0;32mIIIF configs set.\033[0m\n"
-
-      echo -e "\033[0;32mGRANTING WISSKI USER PERMISSIONS.\033[0m\n"
-      if ! drush pm:list --status=enabled --type=module --filter=toolbar --format=list 2>/dev/null | grep -qx toolbar; then
-        drush en toolbar -y || echo -e "\033[0;33mWARNING: toolbar module not enabled; access toolbar will be skipped.\033[0m"
-      fi
-      grant_wisski_user_perm() {
-        local perm="$1"
-        if drush role:perm:add wisski_user "${perm}" -y; then
-          return 0
-        fi
-        echo -e "\033[0;33mWARNING: permission not defined, skipped: ${perm}\033[0m"
-      }
-      for perm in \
-        'access toolbar' \
-        'access navigate' \
-        'access create' \
-        'access find' \
-        'create any wisski content' \
-        'view any wisski content' \
-        'view published wisski content' \
-        'view own unpublished wisski content' \
-        'view other unpublished wisski content' \
-        'view wisski revisions' \
-        'revert wisski revisions' \
-        'edit any wisski content' \
-        'delete any wisski content' \
-        'access wisski manifests' \
-        'wisski_adapter_sparql11_pb.query'
-      do
-        grant_wisski_user_perm "${perm}"
-      done
-      echo -e "\033[0;32mWISSKI USER PERMISSIONS GRANTED.\033[0m\n"
-
-      echo -e "\033[0;33mCLEAR CACHE.\033[0m\n"
-      drush cr
-      echo -e "\033[0;32mCACHE CLEARED.\033[0m\n"
-
-    echo -e "\033[0;32mWISSKI DEFAULT DATA MODEL RECIPE APPLIED.\033[0m\n"
-
+    install_default_data_model
   else
-    echo -e "\033[0;33mWISSKI DEFAULT DATA MODEL RECIPE SKIPPED\033[0m\n"
-
+    ok "WISSKI DEFAULT DATA MODEL RECIPE SKIPPED."
   fi
 
-  # Set IMCE profiles (after recipes, when IMCE may be installed)
-  echo -e "\033[0;33mSET IMCE PROFILES.\033[0m"
-  {
-    drush config-set imce.settings roles_profiles.authenticated.public member -y
-    drush config-set imce.settings roles_profiles.authenticated.private member -y
-    drush config-set imce.settings roles_profiles.administrator.public admin -y
-    drush config-set imce.settings roles_profiles.administrator.private admin -y
-    drush config-set imce.settings roles_profiles.wisski_user.public member -y
-    drush config-set imce.settings roles_profiles.wisski_user.private member -y
-    drush config-set --input-format=yaml imce.profile.member conf.folders '[{path: "users/user[user:name]", permissions: {all: true}}]' -y
-  } 1> /dev/null
-  echo -e "\033[0;32mIMCE PROFILES SET.\033[0m\n"
+  # After the recipes, when IMCE may be installed.
+  set_imce_profiles
 
-  # Enable the Redis module (settings.docker.php already includes its settings).
-  if [ -n "${REDIS_HOST}" ]; then
-    echo -e "\033[0;33mCONFIGURING REDIS INTEGRATION.\033[0m"
-    {
-      drush en redis -y
-      drush cr
-    } 1> /dev/null
-    echo -e "\033[0;32mREDIS INTEGRATION CONFIGURED.\033[0m\n"
-  else
-    echo -e "\033[0;33mREDIS INTEGRATION SKIPPED\033[0m\n"
-  fi
+  # The settings.docker.php include is already in place; the module is not.
+  step "CONFIGURING REDIS INTEGRATION."
+  drush en redis -y >/dev/null
+  drush cr >/dev/null
+  ok "REDIS INTEGRATION CONFIGURED."
 
-  # Set secure permissions following Drupal security guidelines.
-  echo -e "\033[0;33mSET SECURE PERMISSIONS.\033[0m"
+  step "SET SECURE PERMISSIONS."
   bash /usr/local/bin/set-permissions.sh
-  echo -e "\033[0;32mSECURE PERMISSIONS SET.\033[0m\n"
+  ok "SECURE PERMISSIONS SET."
 
   # Record the package set version the site was installed with.
   cat "${IMAGE_PACKAGES_VERSION_FILE}" > "${SITE_PACKAGES_VERSION_FILE}" 2>/dev/null || true
 
   # Mark the installation as complete so restarts skip the install logic.
-  rm -f "$INSTALL_IN_PROGRESS_FILE"
-  touch "$INSTALL_COMPLETE_FILE"
+  rm -f "${INSTALL_IN_PROGRESS_FILE}"
+  touch "${INSTALL_COMPLETE_FILE}"
 
   echo -e "\033[0;32m+---------------------------+\033[0m"
   echo -e "\033[0;32m|FINISHED INSTALLING DRUPAL.|\033[0m"
   echo -e "\033[0;32m+---------------------------+\033[0m"
-fi
+}
 
-sync_salz_adapter_urls
+# --- Existing site -----------------------------------------------------------
+# Run database updates when the image ships a newer package set than the one
+# the site was installed or last updated with.
+update_site_if_package_set_changed() {
+  local imagePackagesVersion sitePackagesVersion
+  imagePackagesVersion="$(cat "${IMAGE_PACKAGES_VERSION_FILE}" 2>/dev/null || echo "unknown")"
+  sitePackagesVersion="$(cat "${SITE_PACKAGES_VERSION_FILE}" 2>/dev/null || echo "unknown")"
+  if [ "${imagePackagesVersion}" != "${sitePackagesVersion}" ]; then
+    step "PACKAGE SET CHANGED (${sitePackagesVersion} -> ${imagePackagesVersion}); RUNNING DATABASE UPDATES..."
+    drush updatedb -y
+    drush cr
+    echo "${imagePackagesVersion}" > "${SITE_PACKAGES_VERSION_FILE}"
+    ok "DATABASE UPDATES APPLIED."
+  fi
+}
 
-echo -e "\033[0;33mAPPLYING SITE COMPOSER PACKAGES...\033[0m"
-if /usr/local/bin/apply-composer-local.sh; then
-  echo -e "\033[0;32mSITE COMPOSER PACKAGES APPLIED.\033[0m\n"
-  # Packages Composer installed at boot come from zip archives (644/755).
-  /usr/local/bin/group-writable.sh
-else
-  echo -e "\033[0;31mERROR: Failed to apply web/sites/composer.local.json onto this image.\033[0m"
-  echo -e "\033[0;31mFix the extra package constraints or wait for a compatible image, then recreate the container.\033[0m"
-  exit 1
-fi
+# What every start of an installed site does: triplestore, generated
+# settings, permissions.
+refresh_installed_site() {
+  ensure_default_triplestore || exit 1
+  write_docker_settings
+  bash /usr/local/bin/set-permissions.sh
+}
 
+boot_site() {
+  step "CHECKING IF DRUPAL IS ALREADY INSTALLED."
+  if [ -f "${INSTALL_COMPLETE_FILE}" ]; then
+    ok "DRUPAL IS ALREADY INSTALLED."
+    ensure_key_value_expire
+    update_site_if_package_set_changed
+    refresh_installed_site
+  elif [ -f "${INSTALL_IN_PROGRESS_FILE}" ]; then
+    err "A previous installation attempt did not finish."
+    echo "The site may be half-configured. Wipe the volumes (database and ${INSTALL_IN_PROGRESS_FILE%/*}) to reinstall,"
+    echo "or finish the configuration manually and create ${INSTALL_COMPLETE_FILE} (and remove ${INSTALL_IN_PROGRESS_FILE})."
+    exit 1
+  elif [ -f "${SETTINGS_FILE}" ]; then
+    # Legacy installation created before marker files were introduced.
+    ok "DRUPAL IS ALREADY INSTALLED (LEGACY INSTALLATION DETECTED; CREATING MARKER FILE)."
+    touch "${INSTALL_COMPLETE_FILE}"
+    refresh_installed_site
+  else
+    install_site
+  fi
+}
+
+# Extra Composer packages live in web/sites/composer.local.json (sites volume)
+# and are applied onto the image's codebase on every start.
+apply_composer_extras() {
+  step "APPLYING SITE COMPOSER PACKAGES..."
+  if /usr/local/bin/apply-composer-local.sh; then
+    ok "SITE COMPOSER PACKAGES APPLIED."
+    # Packages Composer installed at boot come from zip archives (644/755).
+    /usr/local/bin/group-writable.sh
+  else
+    err "Failed to apply web/sites/composer.local.json onto this image."
+    echo "Fix the extra package constraints or wait for a compatible image, then recreate the container."
+    exit 1
+  fi
+}
+
+# --- Services ----------------------------------------------------------------
 # NGINX_WORKER_PROCESSES and PHP_FPM_MAX_CHILDREN come from .env / Compose.
-# Raising workers without DRUPAL_CPUS / DRUPAL_MEMORY still hits the 2 CPU / 2G cgroup.
+# Raising workers without DRUPAL_CPUS / DRUPAL_MEMORY still hits the cgroup limit.
 apply_runtime_performance() {
   local workers="${NGINX_WORKER_PROCESSES:-2}"
   local children="${PHP_FPM_MAX_CHILDREN:-6}"
@@ -762,13 +744,13 @@ apply_runtime_performance() {
   case "${workers}" in
     auto|[1-9]|[1-9][0-9]) ;;
     *)
-      echo -e "\033[0;33mWARNING: invalid NGINX_WORKER_PROCESSES=${workers}; using 2.\033[0m"
+      warn "invalid NGINX_WORKER_PROCESSES=${workers}; using 2."
       workers=2
       ;;
   esac
 
   if ! [[ "${children}" =~ ^[1-9][0-9]*$ ]] || [ "${children}" -gt 64 ]; then
-    echo -e "\033[0;33mWARNING: invalid PHP_FPM_MAX_CHILDREN=${children}; using 6.\033[0m"
+    warn "invalid PHP_FPM_MAX_CHILDREN=${children}; using 6."
     children=6
   fi
 
@@ -792,36 +774,11 @@ pm.max_requests = 500
 request_terminate_timeout = 300
 EOF
 
-  echo -e "\033[0;32mRUNTIME PERFORMANCE: nginx workers=${workers}, php-fpm max_children=${children}.\033[0m\n"
-}
-
-start_php_fpm() {
-  if pgrep -x php-fpm >/dev/null 2>&1; then
-    echo -e "\033[0;32mPHP-FPM already running.\033[0m"
-    return
-  fi
-  echo -e "\033[0;33mStarting PHP-FPM...\033[0m"
-  mkdir -p /run/php
-  php-fpm -D
-  echo -e "\033[0;32mPHP-FPM started.\033[0m"
-}
-
-start_memcached() {
-  if pgrep -x memcached >/dev/null 2>&1; then
-    echo -e "\033[0;32mMemcached already running.\033[0m"
-    return
-  fi
-  echo -e "\033[0;33mStarting memcached...\033[0m"
-  memcached -d -u memcache -l 127.0.0.1 -m 64
-  echo -e "\033[0;32mMemcached started on 127.0.0.1:11211.\033[0m"
+  ok "RUNTIME PERFORMANCE: nginx workers=${workers}, php-fpm max_children=${children}."
 }
 
 start_iipsrv() {
-  if pgrep -f iipsrv.fcgi >/dev/null 2>&1; then
-    echo -e "\033[0;32mIIPImage server already running.\033[0m"
-    return
-  fi
-  echo -e "\033[0;33mStarting IIPImage server...\033[0m"
+  step "Starting IIPImage server..."
   export VERBOSITY="1"
   export LOGFILE="/var/log/iipsrv.log"
   export MAX_IMAGE_CACHE_SIZE="10"
@@ -833,11 +790,11 @@ start_iipsrv() {
   local bindAddress="127.0.0.1"
   local bindPort="9100"
   su -s /bin/bash www-data -c "exec /fcgi-bin/iipsrv.fcgi --bind ${bindAddress}:${bindPort}" &
-  echo -e "\033[0;32mIIPImage server started on ${bindAddress}:${bindPort}.\033[0m"
+  ok "IIPImage server started on ${bindAddress}:${bindPort}."
 }
 
-shutdownServices() {
-  echo -e "\033[0;33mSHUTTING DOWN SERVICES...\033[0m"
+shutdown_services() {
+  step "SHUTTING DOWN SERVICES..."
   if [ -n "${nginxPid:-}" ] && kill -0 "${nginxPid}" 2>/dev/null; then
     nginx -s quit 2>/dev/null || kill -TERM "${nginxPid}" 2>/dev/null || true
   fi
@@ -845,20 +802,44 @@ shutdownServices() {
   pkill -TERM memcached 2>/dev/null || true
   pkill -TERM -f iipsrv.fcgi 2>/dev/null || true
   wait 2>/dev/null || true
-  echo -e "\033[0;32mSERVICES STOPPED.\033[0m"
+  ok "SERVICES STOPPED."
   exit 0
 }
 
-trap shutdownServices TERM INT
+# Nothing runs at this point (this is the container's first process), so the
+# services are started without checking for running copies.
+start_services() {
+  trap shutdown_services TERM INT
 
-echo -e "\n"
+  apply_runtime_performance
 
-apply_runtime_performance
-start_php_fpm
-start_memcached
-start_iipsrv
+  step "Starting PHP-FPM..."
+  php-fpm -D
+  ok "PHP-FPM started."
 
-# Run nginx in the foreground so SIGTERM can drain in-flight requests first.
-nginx -g "daemon off;" &
-nginxPid=$!
-wait "${nginxPid}"
+  step "Starting memcached..."
+  memcached -d -u memcache -l 127.0.0.1 -m 64
+  ok "Memcached started on 127.0.0.1:11211."
+
+  start_iipsrv
+
+  # Run nginx in the foreground so SIGTERM can drain in-flight requests first.
+  nginx -g "daemon off;" &
+  nginxPid=$!
+  wait "${nginxPid}"
+}
+
+main() {
+  banner
+  prepare_developer_user
+  validate_environment
+  prepare_volumes
+  ensure_wisski_dev_clone
+  ensure_dev_group_write
+  boot_site
+  sync_salz_adapter_urls
+  apply_composer_extras
+  start_services
+}
+
+main
