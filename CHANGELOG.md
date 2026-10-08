@@ -2,6 +2,9 @@
 
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...HEAD)
 
+### Changed
+- Development attach also supports Claude Code: named volume for `/home/developer/.claude`, optional binds from `.container-dev/claude/` onto `~/.claude/rules`, `~/.claude/skills`, `~/.claude/agents`, and `~/.claude/settings.json` (not into the WissKI clone). Same for Cursor under `~/.cursor/`. Entrypoint `chown` skips those `:ro` binds.
+
 ## [6.0.1](https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1) - 2026-09-29
 
 ### Fixed

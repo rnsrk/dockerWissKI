@@ -3,10 +3,10 @@
 #
 # Last file in COMPOSE_FILE wins. Keep this document valid Compose YAML.
 #
-# Default below persists remote Cursor/VS Code server state in named volumes
-# and mounts the shared WissKI workspace `.vscode/` from this repo.
+# Default below persists remote Cursor/VS Code/Claude Code server state in named
+# volumes and mounts the shared WissKI workspace `.vscode/` from this repo.
 # Uncomment personal mounts from gitignored `.container-dev/` (Machine
-# settings, Cursor rules/skills). Optional WissKI host bind and SSH key
+# settings, Cursor/Claude rules/skills/agents). Optional WissKI host bind and SSH key
 # mounts are commented.
 #
 # Attach as user `developer` (host UID, default 1000). PID 1 stays root for
@@ -24,7 +24,9 @@
 #
 # Personal container-only IDE config (gitignored except wisski-vscode/):
 #   CONTAINER_DEV_PATH=./.container-dev
-# Put Machine settings, Cursor rules/skills, and a local WissKI clone there.
+# Put Machine settings, Cursor/Claude rules/skills, and a local WissKI clone there.
+# Claude Code rules/skills bind onto `/home/developer/.claude/` (same pattern as
+# Cursor) so the WissKI clone stays without a `.claude/` directory.
 
 services:
   drupal:
@@ -33,6 +35,7 @@ services:
       - cursor-server:/home/developer/.cursor-server
       - vscode-server:/home/developer/.vscode-server
       - cursor-directory:/home/developer/.cursor
+      - claude-directory:/home/developer/.claude
 
       # --- Optional: personal container-only IDE config (untracked) ---
       # Uncomment the files/dirs you want from your personal gitignored folder.
@@ -41,9 +44,18 @@ services:
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.cursor-server/data/Machine/settings.json:ro
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.vscode-server/data/Machine/settings.json:ro
       #
-      # Optional Cursor rules / skills that apply only inside the attached container:
+      # Optional Cursor rules / skills / agents that apply only inside the attached container:
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/home/developer/.cursor/rules:ro
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/skills:/home/developer/.cursor/skills:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/agents:/home/developer/.cursor/agents:ro
+      #
+      # Optional Claude Code rules / skills / agents / settings.json (convert
+      # rules with roBot_rules/scripts/install.sh). Bind onto the developer
+      # home dir — do not mount into the WissKI clone:
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/claude/rules:/home/developer/.claude/rules:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/claude/skills:/home/developer/.claude/skills:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/claude/agents:/home/developer/.claude/agents:ro
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/claude/settings.json:/home/developer/.claude/settings.json:ro
 
       # --- Optional: host SSH keys for git@ remotes ---
       # Development image includes openssh-client. Attach as `developer` so a
@@ -74,3 +86,4 @@ volumes:
   cursor-server:
   vscode-server:
   cursor-directory:
+  claude-directory:

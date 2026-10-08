@@ -73,9 +73,9 @@ Omit `-u developer` to run as root. PHP-FPM stays `www-data`.
 
 In development, `/opt/drupal` stays `www-data`-owned with group-write + setgid so `developer` (in `www-data`) can edit the tree. `settings.php` stays read-only (444); `sites/default` itself is writable (775) so you can add `settings.local.php`. Production still locks `sites/default` to 555.
 
-### Attach Cursor / VS Code into Drupal
+### Attach Cursor / VS Code / Claude Code into Drupal
 
-For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.
+For IDE attach into the `drupal` container (persisted remote server, personal container-only settings, in-container Xdebug), use the override example. Shared WissKI workspace VS Code files live in [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/). Keep personal files (`cursor/`, `claude/`, `wisski/`, Machine settings) gitignored under `/.container-dev/`.
 
 The development image runs nginx/PHP-FPM as root/`www-data` and the attached IDE as **`developer`** (host UID, in the `www-data` group, write access under `/opt/drupal`, no sudo). That is why `~/.ssh` can be bind-mounted directly — OpenSSH requires the files to be owned by the user running `ssh`.
 
@@ -83,7 +83,7 @@ The development image runs nginx/PHP-FPM as root/`www-data` and the attached IDE
 2. Append `:docker-compose.override.yml` to `COMPOSE_FILE` in `.env`
 3. If your host UID is not 1000, set `DEV_UID` / `DEV_GID` in `.env` (and rebuild locally so the image user matches)
 4. `docker compose up -d`
-5. Optional: add personal files under `/.container-dev/` (`cursor/`, Machine settings, a WissKI clone) and uncomment those mounts in `docker-compose.override.yml`. For git SSH remotes, uncomment the `~/.ssh` (or `SSH_HOST_PATH`) mount onto `/home/developer/.ssh`. Recreate Drupal after a development image that includes `openssh-client` and the `developer` user (local rebuild or a newer GHCR pull).
+5. Optional: add personal files under `/.container-dev/` (`cursor/`, `claude/`, Machine settings, a WissKI clone) and uncomment those mounts in `docker-compose.override.yml`. Cursor and Claude Code rules/skills/agents bind onto `/home/developer/.cursor` and `/home/developer/.claude` (Claude `settings.json` onto `~/.claude/settings.json`) so the WissKI clone stays clean. For git SSH remotes, uncomment the `~/.ssh` (or `SSH_HOST_PATH`) mount onto `/home/developer/.ssh`. Recreate Drupal after a development image that includes `openssh-client` and the `developer` user (local rebuild or a newer GHCR pull).
 6. If you bind personal Machine `settings.json` files, create their parent dirs once:
 
 ```bash
@@ -93,7 +93,7 @@ docker compose exec -u developer drupal mkdir -p \
 ```
 
 7. If those file mounts were added before the dirs existed: `docker compose up -d --force-recreate drupal`
-8. Attach Cursor/VS Code to the `drupal` service as user **`developer`** (the development compose file sets `remoteUser`)
+8. Attach Cursor / VS Code / Claude Code to the `drupal` service as user **`developer`** (the development compose file sets `remoteUser`)
 9. Open `/opt/drupal/web/modules/contrib/wisski`
 10. Start **Listen for Xdebug (in-container)**
 11. Trigger with `XDEBUG_TRIGGER=1` / a browser helper; for Drush: `XDEBUG_TRIGGER=1 drush --xdebug …`
@@ -103,7 +103,7 @@ Optional live edit of a host WissKI clone: set `WISSKI_HOST_PATH` and uncomment 
 Per-developer (untracked) IDE customization:
 
 - Shared workspace config is [`.container-dev/wisski-vscode/`](.container-dev/wisski-vscode/) (`settings.json`, `launch.json`, `extensions.json`), mounted onto `/opt/drupal/web/modules/contrib/wisski/.vscode`.
-- Personal files stay gitignored under `/.container-dev/` (`cursor/`, `wisski/`, `vscode-machine-settings.json`). The override example has opt-in mounts for those, plus an optional host SSH key bind (`~/.ssh` or `.container-dev/ssh/` → `/home/developer/.ssh`).
+- Personal files stay gitignored under `/.container-dev/` (`cursor/`, `claude/`, `wisski/`, `vscode-machine-settings.json`). The override example has opt-in mounts for those, plus an optional host SSH key bind (`~/.ssh` or `.container-dev/ssh/` → `/home/developer/.ssh`). Cursor and Claude Code bind `rules/`, `skills/`, and `agents/` onto `/home/developer/.cursor` and `/home/developer/.claude`. Claude Code `settings.json` binds onto `/home/developer/.claude/settings.json`. Do not bind `.claude/` into the WissKI module tree.
 - VS Code extensions themselves stay untracked in the persisted remote server volume.
 - If you do not bind personal Machine settings files, edit remote settings directly in the attached container; they still persist in the named volumes and stay out of git.
 - The local image build uses `./drupal` as its Docker build context, so repo-root `/.container-dev/` content is not copied into the image.

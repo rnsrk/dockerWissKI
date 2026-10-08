@@ -79,8 +79,8 @@ if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
   esac
   chown developer:developer /home/developer
   # Named IDE volumes start as root. Do not recurse into :ro binds (Machine
-  # settings.json, cursor rules/skills) — those are the same filesystem as the
-  # volume, so find -xdev would still try chown and spam EROFS.
+  # settings.json, Cursor/Claude rules/skills/agents) — those are the same filesystem
+  # as the volume, so find -xdev would still try chown and spam EROFS.
   chown_developer_volume() {
     local root="$1"
     mkdir -p "${root}"
@@ -88,12 +88,15 @@ if [ "${MODE}" = "development" ] && id developer >/dev/null 2>&1; then
     find "${root}" \( \
       -path "${root}/rules" -o \
       -path "${root}/skills" -o \
+      -path "${root}/agents" -o \
+      -path "/home/developer/.claude/settings.json" -o \
       -path "${root}/data/Machine/settings.json" \
     \) -prune -o -exec chown developer:developer {} + 2>/dev/null || true
   }
   chown_developer_volume /home/developer/.cursor-server
   chown_developer_volume /home/developer/.vscode-server
   chown_developer_volume /home/developer/.cursor
+  chown_developer_volume /home/developer/.claude
 fi
 
 # Validate required environment variables.

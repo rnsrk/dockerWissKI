@@ -18,5 +18,5 @@ services:
       - ./drupal/entrypoint.sh:/entrypoint.sh:ro
       - ./drupal/config/drupal/set-permissions.sh:/usr/local/bin/set-permissions.sh:ro
     labels:
-      # Attach Cursor/VS Code as `developer` (not root). PID 1 stays root.
+      # Attach Cursor / VS Code / Claude Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'
