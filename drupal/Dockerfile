@@ -298,14 +298,14 @@ RUN set -eux; \
     unzip -qo /tmp/dompurify.zip -d /tmp; \
     cp -a --no-preserve=ownership /tmp/DOMPurify-main/dist /opt/drupal/web/libraries/dompurify/; \
     rm -rf /tmp/dompurify.zip /tmp/DOMPurify-main; \
-    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/thedworak/dfg_3dviewer/archive/standalone.zip" -o /tmp/dlf_aim_3d_viewer.zip; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/thedworak/dfg_3dviewer/archive/refs/heads/main.zip" -o /tmp/dlf_aim_3d_viewer.zip; \
     mkdir -p /opt/drupal/web/libraries/dlf_aim_3d_viewer; \
     unzip -qo /tmp/dlf_aim_3d_viewer.zip -d /tmp; \
-    cp -a --no-preserve=ownership /tmp/dfg_3dviewer-standalone/. /opt/drupal/web/libraries/dlf_aim_3d_viewer/; \
+    cp -a --no-preserve=ownership /tmp/dfg_3dviewer-main/. /opt/drupal/web/libraries/dlf_aim_3d_viewer/; \
     rm -rf /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/dev \
            /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/prod \
            /opt/drupal/web/libraries/dlf_aim_3d_viewer/dist/test; \
-    rm -rf /tmp/dlf_aim_3d_viewer.zip /tmp/dfg_3dviewer-standalone; \
+    rm -rf /tmp/dlf_aim_3d_viewer.zip /tmp/dfg_3dviewer-main; \
     if [ "$MODE" = "development" ]; then \
     find /opt/drupal -xdev ! -type l ! -perm -g=w -not -path '*/node_modules/*' -exec chmod g+w {} +; \
     fi
