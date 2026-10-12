@@ -85,7 +85,7 @@ docker compose exec -u developer drupal bash
 
 Omit `-u developer` to run as root. PHP-FPM stays `www-data`.
 
-The codebase in `/opt/drupal` (core, vendor, modules, libraries) belongs to root in both images: PHP-FPM (`www-data`) can read but not change it. What PHP writes lives on volumes owned by `www-data`: `web/sites` (public files), `private-files`, `web/modules/custom`, and `web/themes/custom`. `settings.php` is read-only (444) and root-owned; `sites/default` is 555 in production and group-writable (775, group `www-data`) in development so you can add `settings.local.php`. In development the tree is also group-writable with group `www-data` (setgid), so `developer` (in `www-data`) can edit it without sudo.
+The codebase in `/opt/drupal` (core, vendor, modules, libraries) belongs to root in both images: PHP-FPM (`www-data`) can read but not change it. What PHP writes lives on volumes owned by `www-data`: `web/sites` (public files), `private-files`, `web/modules/custom`, and `web/themes/custom`. `settings.php` is read-only (444) and root-owned; `sites/default` is 555 in production and group-writable (775, group `www-data`) in development so you can add `settings.local.php`. In development the tree is also group-writable with group `www-data` (setgid), so `developer` (in `www-data`) can edit it without sudo. In return, `www-data` is in the `developer` group, so PHP-FPM can write into the test sites that functional tests run as `developer` create under `web/sites/simpletest`.
 
 Run `wisski-composer` as root, which is the default for `docker compose exec drupal wisski-composer …`. `developer` cannot run Composer: it does not own the files Composer touches.
 

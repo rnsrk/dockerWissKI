@@ -93,6 +93,8 @@ prepare_developer_user() {
       if [ "$(id -g developer)" != "${gid}" ]; then
         if getent group "${gid}" >/dev/null; then
           usermod -g "${gid}" developer
+          # PHP-FPM writes into the test sites `developer` creates.
+          usermod -aG "$(getent group "${gid}" | cut -d: -f1)" www-data
         else
           groupmod -g "${gid}" developer
         fi

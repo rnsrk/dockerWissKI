@@ -3,42 +3,28 @@
 ## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
 
 ### Breaking Changes
-- The codebase in `/opt/drupal` belongs to root in both images, not to `www-data`. PHP-FPM can read it but no longer change it; only `web/sites`, `private-files`, `web/modules/custom`, `web/themes/custom`, and the temp, log, and cache directories stay writable for `www-data`. Pull or build the new image and recreate the container (`docker compose up -d --force-recreate drupal`). `set-permissions.sh` now runs on every boot and moves the settings files and `sites/default` of an existing site to root ownership.
-- Composer runs as root at boot (it ran as `www-data`). Run `wisski-composer` as root, which is the default for `docker compose exec`. `developer` cannot run Composer because it does not own the files Composer touches.
-- The image has no MySQL/MariaDB driver any more (`mysqli`, `pdo_mysql`, `libmariadb3`, and `zz-mysqli-recommended.ini` are gone). The stack has only supported PostgreSQL: the entrypoint waits for the database with `pg_isready`.
-- Trusted hosts, the private files path, the Redis include, and the reverse proxy settings come from a generated `web/sites/default/settings.docker.php` that `settings.php` includes last. The entrypoint rewrites it on every start, so `DRUPAL_TRUSTED_HOSTS` and `DRUPAL_PROXY_ADDRESSES` changes in `.env` take effect (the hosts used to be appended once at install, the proxy block was patched by a Python script). A value for these settings that you added by hand to `settings.php` is overridden. Existing sites keep the lines the old entrypoint appended; they are harmless because the include comes last. Trusted host patterns are now written as exact single-quoted PHP strings instead of being interpolated through double quotes.
+- The codebase in `/opt/drupal` belongs to root. `www-data` can only write `web/sites`, `private-files`, custom modules/themes, and temp/log/cache. Pull the image and recreate: `docker compose up -d --force-recreate drupal`.
+- Composer runs as root; `developer` can no longer run it. Use `wisski-composer` via `docker compose exec`.
+- MySQL/MariaDB drivers are gone from the image; PostgreSQL only.
+- Trusted hosts, private files path, Redis, and proxy settings now come from a generated `settings.docker.php`, rewritten on every start. Hand-edited values for these in `settings.php` are overridden.
 
 ### Changed
-- The image no longer runs a recursive `chmod 644` over the codebase and a `chown -R` after every build step. Each of these copied the whole tree into a new layer (1.07 GB in the development image) and stripped executable bits, which `restore-git-modes.sh` and a marker file in the entrypoint then repaired. Composer and git already create 644/755 files, so none of that is needed. The development image went from about 3.2 GB to 1.9 GB.
-- The 3D viewer library ships only `dist/drupal`; its `dist/dev`, `dist/prod`, and `dist/test` builds (about 200 MB) are not referenced by the Drupal module.
-- Development: the tree is group-writable with group `www-data` from build time (umask 002, setgid, and one `chmod g+w` for files extracted from zip archives in the same layer that creates them). At boot only the volume mount points and packages Composer installed need a pass. `wisski-composer` runs the same pass, so a package is editable right after `require`.
-- PHP settings live in `drupal/config/php/` (`zz-wisski.ini`, `zz-redis.ini`, `zz-apcu.ini`, and `development/` or `production/` for OPcache and Xdebug), copied with one `COPY` each. The configuration is copied after the Composer layers, so editing a setting no longer rebuilds the codebase. Values are unchanged.
-- `set-permissions.sh` handles only the settings files, `sites/default`, and the files directories, and it is cheap enough to run on every boot. The recursive walk over uploaded files happens once, when the directory is not yet owned by `www-data`.
-- The Dockerfile uses `COPY --chmod` instead of a separate `chmod` step, creates `/fcgi-bin`, the Composer home, and the log files once, creates the Xdebug log only in development, and drops the unused `CMD` (the entrypoint starts nginx itself).
-- The WissKI package set is pinned only by the `WISSKI_PACKAGES_VERSION` / `WISSKI_PACKAGES_LINE` ARG defaults in `drupal/Dockerfile`. The env presets no longer carry the two variables (`production.env` said `3.7.0` / `3.x`, which contradicted the published images and a local build). A value in `.env` still overrides the default for `docker-compose.local-build.yml`.
-- No service publishes a host port in the presets any more, because Caddy owns `HTTP_PORT`. The Xdebug port `9003` is gone from `docker-compose.development.yml` and `docker-compose.proxy.yml`: Xdebug connects from inside the container to the IDE running there. `XDEBUG_PORT` is no longer used.
-- `XDEBUG_MODE` from `.env` now reaches the development container (default `debug`), as the README already said. `XDEBUG_MODE=off` switches the extension off.
-- The Drupal health check is defined once, in the Dockerfile (interval 15 s, 30 retries after the start period), instead of twice with different values.
-- `docker-compose.apple-silicon.yml` forces `linux/amd64` only for `drupal` and `outproxy`, the images that are published for amd64 alone.
-- The Caddyfile shares the timeout and upload-size settings through snippets. The adapted configuration is identical.
-- The IDE attach guide moved from the README to `docs/ide-attach.md`; `composer.local.json.example` moved to `docs/`.
-- The entrypoint is a list of named steps. `main` at the bottom reads `banner`, `prepare_developer_user`, `validate_environment`, `prepare_volumes`, `ensure_wisski_dev_clone`, `boot_site`, `sync_salz_adapter_urls`, `apply_composer_extras`, `start_services`. `boot_site` chooses between a finished install, a half-finished one (stops with instructions), a legacy install, and `install_site`. Four log helpers (`step`, `ok`, `warn`, `err`) replace 116 colored `echo -e` lines. The behavior is the same, with these exceptions: the three `drush en` calls are one, the IMCE profiles are set in a loop, the 3D viewer IDs have names (`DLF_ENTITY_BUNDLE` and two more, which are the module's own defaults), the install branch no longer checks `REDIS_HOST` and `DRUPAL_TRUSTED_HOSTS` (both are required), and the services are started without checking whether a copy is already running (this is the container's first process).
-- The development stack no longer bind-mounts `entrypoint.sh`, `set-permissions.sh`, or the OPcache ini over the image. The reason for the mounts (a fix before a GHCR rebuild) is gone: the `5.x` image is rebuilt on every push. To work on the image, build it locally with `docker-compose.local-build.yml` (README: "Working on the image itself").
-- The pgAdmin entrypoint drops its server-mode branches; Compose always runs pgAdmin with `PGADMIN_CONFIG_SERVER_MODE=False`.
+- Much smaller images (development about 3.2 GB to 1.9 GB) and faster rebuilds: no recursive `chmod`/`chown` layers, PHP settings in `drupal/config/php/`.
+- Development tree is group-writable for `www-data` from build time; `wisski-composer` makes new packages editable right away.
+- The WissKI package version is pinned only by the Dockerfile `ARG`s; `.env` can still override it for local builds.
+- No service publishes a host port in the presets (Caddy owns `HTTP_PORT`); Xdebug port `9003` and `XDEBUG_PORT` are gone. `XDEBUG_MODE` from `.env` now takes effect.
+- The entrypoint is split into named steps and no longer bind-mounted in development. To work on the image, use `docker-compose.local-build.yml`.
+- Docs moved: IDE attach guide to `docs/ide-attach.md`, `composer.local.json.example` to `docs/`.
+- Smaller cleanups in the health check, Caddyfile, pgAdmin, and Apple Silicon override.
 
 ### Fixed
-- The `opengdb` submodule pointed at a commit that exists only in one local checkout, so `git clone --recurse-submodules` failed. It is back on upstream `f072910`. The authproxy fix from that commit (a refused RDF4J `PUT` made authproxy delete the Django row and, through `pre_delete`, the existing RDF4J repository with its data) now lives in `patches/opengdb/` and is applied when building `authproxy`. The authproxy image is called `dockerwisski-authproxy` and is built from the new `authproxy-upstream` service (scale 0, never started). Run `docker compose build authproxy` once. The patch README has the text for the upstream pull request.
-- Login shells keep `/opt/drupal/vendor/bin` on `PATH`. `/etc/profile` was replacing the image `ENV` and dropping phpcs, phpstan, and phpunit for `developer` and in-container agents.
-- The shared VS Code settings pointed `phpsab` at `wisski/vendor/bin/phpcs`, which the README says must not exist. They use `/opt/drupal/vendor/bin` now.
-- README: the image table said development has OPcache off, the IDE guide said to rebuild locally for a non-1000 UID (the entrypoint adapts the `developer` user), and the extra-packages section said the codebase is replaced on every start (only a new container starts from the image).
+- Development: functional tests (`BrowserTestBase`) failed with `mkdir(): Permission Denied`; `www-data` is now also in the `developer` group.
+- `opengdb` points at an upstream commit again, so `--recurse-submodules` works. Its authproxy fix is a patch in `patches/opengdb/`; run `docker compose build authproxy` once.
+- `PATH` keeps `/opt/drupal/vendor/bin` in login shells; shared VS Code settings and README statements corrected.
 
 ### Removed
-- `restore-git-modes.sh`, its marker file in the WissKI clone, and its compose mount.
-- `reverse-proxy.py`, `sync-reverse-proxy.sh`, and `python3` in the image; nothing else used Python.
-- Packages nothing used: `libgmp`, `libbrotli-dev`, `libvips-dev`, and runtime libraries that were listed twice in the builder stage. `iproute2` is now listed explicitly because the proxy sync calls `ip`.
-- Unused files: `drupal/config/apache/` (the image runs nginx), both `default_repository.ttl` copies, and `zz-wisski-production.conf` (the entrypoint always overwrote its pool settings).
-- `extra_hosts: host.docker.internal` on the Drupal service; nothing used it since Xdebug connects to `127.0.0.1`. Add it to `docker-compose.override.yml` if your own code needs it.
-- Unreachable and duplicate rules in the Varnish VCL (`^/admin/.*`, `^/user/.*`, a POST/PUT/DELETE branch after the method check, a second cookie removal for anonymous visitors).
+- `restore-git-modes.sh`, `reverse-proxy.py`, `sync-reverse-proxy.sh`, and Python in the image.
+- Unused packages, config files (`drupal/config/apache/`, default repository TTLs), the `host.docker.internal` extra host, and dead Varnish VCL rules.
 
 ## [6.1.0](https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0) - 2026-10-08
 

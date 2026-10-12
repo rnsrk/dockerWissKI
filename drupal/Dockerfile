@@ -314,6 +314,9 @@ RUN set -eux; \
 # IDE can git/edit under /opt/drupal without root or sudo. PID 1 stays root
 # (nginx, php-fpm). PHP-FPM workers stay www-data. The tree is already
 # group-writable (see above); the user only has to be in the group.
+# www-data is in the `developer` group in turn: functional tests run as
+# `developer` and create sites/simpletest/<id> as developer:developer 775
+# (Drupal's chmod drops setgid), and PHP-FPM has to write into it.
 ARG DEV_UID=1000
 ARG DEV_GID=1000
 RUN set -eux; \
@@ -323,6 +326,7 @@ RUN set -eux; \
     groupadd --gid "${DEV_GID}" developer; \
     useradd --uid "${DEV_UID}" --gid developer --groups www-data \
       --create-home --home-dir /home/developer --shell /bin/bash developer; \
+    usermod -aG developer www-data; \
     printf '%s\n' \
       'Host git.drupalcode.org' \
       '  Hostname git.drupal.org' \
