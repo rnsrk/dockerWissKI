@@ -228,7 +228,8 @@ RUN set -eux; \
     fi
 
 # WissKI lint and test tools into site vendor, the same layout as the Drupal
-# GitLab CI: the module's require-dev (phpcs, phpstan, parallel-lint, …) plus
+# GitLab CI: the module's require-dev (phpcs, phpstan, parallel-lint, …), its
+# suggested modules (test modules depend on drupal/action, linkit, …), plus
 # drupal/core-dev at the installed core version. core-dev brings phpunit,
 # phpstan-phpunit, behat/mink and prophecy-phpunit; without them PHPStan does
 # not narrow PHPUnit asserts and reports differently than GitLab.
@@ -244,7 +245,7 @@ RUN set -eux; \
     fi; \
     umask 002; \
     cd /opt/drupal; \
-    php /tmp/list-wisski-require-dev.php web/modules/contrib/wisski/composer.json > /tmp/wisski-require-dev.txt; \
+    php /tmp/list-wisski-require-dev.php web/modules/contrib/wisski/composer.json composer.json > /tmp/wisski-require-dev.txt; \
     coreVersion="$(composer show drupal/core --format=json | php -r 'echo json_decode(stream_get_contents(STDIN), true)["versions"][0] ?? "";')"; \
     test -n "${coreVersion}"; \
     set -- "drupal/core-dev:${coreVersion}"; \
@@ -282,12 +283,35 @@ RUN set -eux; \
 # GitHub archive downloads fail intermittently on shared CI runners; retry.
 # The 3D viewer ships three builds of the viewer (dev, prod, test) that nothing
 # references; the Drupal module only loads dist/drupal/main.
+# Mirador 4 (ProjectMirador/mirador) comes from the npm tarball: the git
+# archive has no dist/, and the tarball unpacks into package/. The Mirador
+# block loads libraries/mirador. The annotation editor is part of
+# wisski-mirador-integration, so it is not installed on its own.
+# That release is pinned in the installed module (MiradorLibrary.php). Baking
+# it here lets an image start offline; the entrypoint downloads only when a
+# clone pins a newer version. Older WissKI builds have no pin and skip this.
 RUN set -eux; \
-    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/rnsrk/wisski-mirador-integration/archive/main.zip" -o /tmp/wisski-mirador-integration.zip; \
-    mkdir -p /opt/drupal/web/libraries/wisski-mirador-integration; \
-    unzip -qo /tmp/wisski-mirador-integration.zip -d /tmp; \
-    cp -a --no-preserve=ownership /tmp/wisski-mirador-integration-main/. /opt/drupal/web/libraries/wisski-mirador-integration/; \
-    rm -rf /tmp/wisski-mirador-integration.zip /tmp/wisski-mirador-integration-main; \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://registry.npmjs.org/mirador/-/mirador-4.3.0.tgz" -o /tmp/mirador.tgz; \
+    mkdir -p /opt/drupal/web/libraries/mirador /tmp/mirador-extract; \
+    tar -xzf /tmp/mirador.tgz -C /tmp/mirador-extract; \
+    cp -a --no-preserve=ownership /tmp/mirador-extract/package/. /opt/drupal/web/libraries/mirador/; \
+    rm -rf /tmp/mirador.tgz /tmp/mirador-extract; \
+    miradorLibrary="/opt/drupal/web/modules/contrib/wisski/wisski_mirador/src/MiradorLibrary.php"; \
+    if [ -f "${miradorLibrary}" ]; then \
+      miradorVersion="$(grep -E "const VERSION = '" "${miradorLibrary}" | head -n1 | cut -d "'" -f2)"; \
+      miradorSha="$(grep -E "const ARCHIVE_SHA256 = '" "${miradorLibrary}" | head -n1 | cut -d "'" -f2)"; \
+      test -n "${miradorVersion}"; \
+      test -n "${miradorSha}"; \
+      curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+        "https://github.com/rnsrk/wisski-mirador-integration/archive/refs/tags/v${miradorVersion}.zip" \
+        -o /tmp/wisski-mirador-integration.zip; \
+      echo "${miradorSha}  /tmp/wisski-mirador-integration.zip" | sha256sum -c -; \
+      unzip -qo /tmp/wisski-mirador-integration.zip -d /tmp; \
+      mkdir -p /opt/drupal/web/libraries/wisski-mirador-integration; \
+      cp -a --no-preserve=ownership "/tmp/wisski-mirador-integration-${miradorVersion}/." /opt/drupal/web/libraries/wisski-mirador-integration/; \
+      rm -f /opt/drupal/web/libraries/wisski-mirador-integration/*.map; \
+      rm -rf /tmp/wisski-mirador-integration.zip "/tmp/wisski-mirador-integration-${miradorVersion}"; \
+    fi; \
     curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/TurbojetTechnologies/colorbox/archive/1.7.0.zip" -o /tmp/colorbox.zip; \
     mkdir -p /opt/drupal/web/libraries/colorbox; \
     unzip -qo /tmp/colorbox.zip -d /tmp; \

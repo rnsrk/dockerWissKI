@@ -67,6 +67,10 @@ services:
       # Shared WissKI workspace VS Code/Cursor config (in this repo).
       - ./.container-dev/wisski-vscode:/opt/drupal/web/modules/contrib/wisski/.vscode:ro
 
+      # Issue checkouts. Gitignored under .container-dev/, so a container
+      # recreate does not drop /home/developer/wisski-issues.
+      - ./.container-dev/wisski-issues:/home/developer/wisski-issues
+
       # --- Optional: host WissKI clone instead of the wisski-module volume ---
       # Same target path, so this replaces the named volume from
       # docker-compose.development.yml. An empty host dir is cloned at boot.

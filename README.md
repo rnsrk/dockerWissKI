@@ -35,6 +35,7 @@ First boot installs Drupal and WissKI recipes; that can take several minutes. Fo
 | Caddy subdomains | `wisski.localhost`, `drupal.wisski.localhost`, … | same; site upstream is Varnish |
 | Xdebug | port 9003, trigger mode | not installed |
 | Lint and test tools | phpcs, phpstan, `drupal/core-dev`, cspell/eslint/stylelint (baked in) | not included |
+| PHPUnit services | `chromedriver`, `static`, test database `wisski_test` | not included |
 | WissKI module | git clone on volume `wisski-module` | image codebase |
 | Git SSH | `openssh-client`, user `developer` | not included |
 | Page cache | off | 5 minutes |
@@ -97,6 +98,18 @@ A host clone bind-mounted on the same path in `docker-compose.override.yml` repl
 
 The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. Login shells reset `PATH` in `/etc/profile`; `/etc/profile.d/wisski-path.sh` puts that directory back. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
 
+### WissKI tests (development)
+
+The WissKI PHPUnit suites (Functional and FunctionalJavascript) run in the `drupal` container as `developer`, from the clone:
+
+```bash
+docker compose exec -u developer -w /opt/drupal/web/modules/contrib/wisski drupal phpunit --group settings .
+```
+
+The module's `phpunit.xml.dist` is written for the WissKI devcontainer (MariaDB, `drupal:8080`). The development overlay sets `SIMPLETEST_DB`, `SIMPLETEST_BASE_URL`, and `BROWSERTEST_OUTPUT_BASE_URL` on the `drupal` service instead, and PHPUnit keeps environment variables that are already set. The other URLs in that file match services of this stack as they are: `rdf4j:8080` (the RDF4J behind OpenGDB, where the tests create throwaway repositories), `static:8888` (the file server the tests upload fixtures to, as on GitLab CI), and `chromedriver:4444` (Chromium for the JavaScript tests). Test sites install into the PostgreSQL database `DB_TEST_NAME` (default `wisski_test`), which the entrypoint creates with `pg_trgm`, so they never touch the site database. `SIMPLETEST_DB` is built from `DB_USER` and `DB_PASSWORD`, so the password must be URL-safe. The links in the test report open on the host under `http://SITE_HOST:HTTP_PORT/sites/simpletest/browser_output/`.
+
+Like the GitLab CI composer job, the development image installs the packages WissKI lists under `suggest` next to its `require-dev`. Test modules depend on them (`wisski_authfile` on `drupal/action`, which left core in Drupal 11). GitLab CI runs the tests on MySQL, so a failure that only shows up here can come from PostgreSQL.
+
 ### Working on the image itself
 
 The entrypoint, the Dockerfile, and `drupal/config/` are baked into the image; the development stack does not mount them from the repository. To try a change, build the image locally: append `docker-compose.local-build.yml` to `COMPOSE_FILE` and run `docker compose up -d --build drupal`, or `docker compose watch` to rebuild whenever something under `drupal/` changes. The branch image `dockerwisski-development:5.x` is rebuilt on every push.
@@ -121,7 +134,7 @@ Caddy listens on `HTTP_PORT` (default 80) and routes by `Host`. Browsers resolve
 
 Without `docker-compose.proxy.yml`, services keep the old host ports (`HTTP_PORT`, `PUBLIC_PORT`, `PGADMIN_PORT`, `SOLR_PORT`, production `DRUPAL_DIRECT_PORT`).
 
-OpenGDB login is `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`. On first install the Drupal entrypoint creates the `default` repository through OpenGDB (`POST /rest/repositories`) and fails if SPARQL does not return HTTP 200.
+OpenGDB login is `DJANGO_SUPERUSER_NAME` / `DJANGO_SUPERUSER_PASSWORD`. The Drupal entrypoint creates the `default` repository through OpenGDB (`POST /rest/repositories`) when that slug is not already listed, then fails if SPARQL does not return HTTP 200. A later boot that already sees the slug does not post again.
 
 Drupal SPARQL talks to **authproxy**, not to the OpenGDB `nginx` service and not to RDF4J:
 
@@ -158,7 +171,7 @@ If Drupal SPARQL fails after recreating authproxy, wait until `docker compose ps
 
 ```
 docker-compose.yml                      # default stack, include OpenGDB
-docker-compose.development.yml          # Drupal + Xdebug (Caddy is the public HTTP entry)
+docker-compose.development.yml          # Drupal + Xdebug, PHPUnit services (Caddy is the public HTTP entry)
 docker-compose.production.yml           # Varnish as site upstream
 docker-compose.proxy.yml                # Caddy subdomains on HTTP_PORT (in presets)
 docker-compose.importer.yml             # optional: WissKI Data Importer UI (append)

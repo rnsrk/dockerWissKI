@@ -10,6 +10,17 @@ services:
       DEV_GID: ${DEV_GID:-1000}
       # Xdebug runs in trigger mode; XDEBUG_MODE=off in .env switches it off.
       XDEBUG_MODE: ${XDEBUG_MODE:-debug}
+      # WissKI PHPUnit. These win over the defaults in the module's
+      # phpunit.xml.dist, which expect MariaDB and drupal:8080. Its rdf4j,
+      # static and chromedriver URLs already match the services here. The
+      # entrypoint creates DB_TEST_NAME; every test site gets prefixed tables
+      # there, apart from the site database. DB_PASSWORD must be URL-safe.
+      DB_TEST_NAME: ${DB_TEST_NAME:-wisski_test}
+      SIMPLETEST_DB: pgsql://${DB_USER:-wisski}:${DB_PASSWORD:-wisski}@postgres:${DB_PORT:-5432}/${DB_TEST_NAME:-wisski_test}
+      # Chromedriver opens the site under test from its own container.
+      SIMPLETEST_BASE_URL: http://drupal
+      # Links to the HTML output in the test report, opened on the host.
+      BROWSERTEST_OUTPUT_BASE_URL: http://${SITE_HOST:-wisski.localhost}:${HTTP_PORT:-80}
     volumes:
       # WissKI git clone (branches, remotes, vendor/, node_modules/, .git/config)
       # survives container recreation and image pulls. Docker seeds the empty
@@ -20,6 +31,19 @@ services:
     labels:
       # Attach Cursor / VS Code / Claude Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'
+
+  # Browser for the WissKI FunctionalJavascript tests (same image as the
+  # WissKI devcontainer).
+  chromedriver:
+    image: selenium/standalone-chromium:${CHROMEDRIVER_VERSION:-152.0}
+    restart: unless-stopped
+    shm_size: 2g
+
+  # File server the WissKI tests PUT fixtures to, as on GitLab CI.
+  static:
+    image: ghcr.io/fau-cdi/static_test_server:latest
+    read_only: true
+    restart: unless-stopped
 
 volumes:
   wisski-module:

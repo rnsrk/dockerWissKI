@@ -150,7 +150,7 @@ validate_environment() {
 
   if is_development; then
     step "ENVIRONMENT VARIABLES:"
-    env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG' || true
+    env | sort | grep -viE 'PASSWORD|SECRET|TOKEN|KEY|GPG|SIMPLETEST_DB' || true
     echo
   fi
 }
@@ -335,37 +335,92 @@ PHP
 }
 
 # --- Triplestore and database ------------------------------------------------
-# OpenGDB does not create repositories at its own start. Drupal POSTs
-# /rest/repositories (Django row + RDF4J store) and waits until SPARQL ASK
-# returns HTTP 200. Auth is HTTP Basic: TS_USERNAME / TS_PASSWORD (same as
-# the OpenGDB superuser). Do not put SPARQL tokens in .env.
+# OpenGDB does not create repositories at its own start. When GET
+# /rest/repositories does not already list TS_REPOSITORY, Drupal POSTs it
+# once (Django row + RDF4J store) and waits until SPARQL ASK returns HTTP 200.
+# A second POST inserts another Django row with the same slug. Permission
+# creation then hits UNIQUE, the row stays, and every later lookup of that
+# slug returns HTTP 500. Auth is HTTP Basic: TS_USERNAME / TS_PASSWORD (same
+# as the OpenGDB superuser). Do not put SPARQL tokens in .env.
+#
+# Status: 0 slug is listed, 1 list is HTTP 200 and the slug is absent,
+# 2 the list could not be read.
+triplestore_repository_listed() {
+  local list_file="$1"
+  local list_url="$2"
+  local list_code
+
+  list_code="$(curl -sS -o "${list_file}" -w '%{http_code}' \
+    -u "${TS_USERNAME}:${TS_PASSWORD}" "${list_url}" || true)"
+  if [ "${list_code}" != "200" ]; then
+    return 2
+  fi
+  php -r '
+    $raw = stream_get_contents(STDIN);
+    $repos = json_decode($raw, true);
+    if (!is_array($repos)) {
+      fwrite(STDERR, "OpenGDB repository list is not a JSON array.\n");
+      exit(2);
+    }
+    $want = getenv("TS_REPOSITORY");
+    foreach ($repos as $repo) {
+      if (is_array($repo) && ($repo["id"] ?? "") === $want) {
+        exit(0);
+      }
+    }
+    exit(1);
+  ' < "${list_file}"
+}
+
 ensure_default_triplestore() {
   local ts_auth=(-u "${TS_USERNAME}:${TS_PASSWORD}")
-  local ts_base ts_rest ts_body
+  local ts_base ts_rest ts_body list_body
   local attempt=0 max_attempts=45
-  local post_code ask_code
+  local post_code="skipped" ask_code listed_status=0
+  local reported_existing=0 posted=0
 
   ts_base="$(printf '%s' "${TS_READ_URL}" | sed -E 's#(https?://[^/]+).*#\1#')"
   ts_rest="${ts_base}/rest/repositories"
+  ts_body="$(mktemp)"
+  list_body="$(mktemp)"
 
   ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
     --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
   if [ "${ask_code}" = "200" ]; then
+    rm -f "${ts_body}" "${list_body}"
     ok "DEFAULT TRIPLESTORE REPOSITORY READY."
     return 0
   fi
 
   step "ENSURING DEFAULT TRIPLESTORE REPOSITORY (${TS_REPOSITORY} via ${ts_rest})..."
-  ts_body="$(mktemp)"
   while [ "${attempt}" -lt "${max_attempts}" ]; do
-    post_code="$(curl -sS -o "${ts_body}" -w '%{http_code}' -X POST "${ts_rest}" "${ts_auth[@]}" \
-      -H 'Content-Type: application/json' \
-      --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
+    listed_status=0
+    triplestore_repository_listed "${list_body}" "${ts_rest}" || listed_status=$?
+    if [ "${listed_status}" -eq 1 ] && [ "${posted}" -eq 0 ]; then
+      post_code="$(curl -sS -o "${ts_body}" -w '%{http_code}' -X POST "${ts_rest}" "${ts_auth[@]}" \
+        -H 'Content-Type: application/json' \
+        --data "{\"id\":\"${TS_REPOSITORY}\",\"title\":\"The default repository\"}" || true)"
+      # Any HTTP answer may already have inserted the row (OpenGDB commits
+      # before permission creation fails with 400). Do not post again.
+      if [ -n "${post_code}" ] && [ "${post_code}" != "000" ]; then
+        posted=1
+      fi
+      step "OpenGDB: POST ${ts_rest} -> HTTP ${post_code:-000} (slug was absent)"
+    elif [ "${listed_status}" -eq 0 ]; then
+      post_code="skipped"
+      if [ "${reported_existing}" -eq 0 ]; then
+        step "OpenGDB already lists ${TS_REPOSITORY}; waiting for SPARQL."
+        reported_existing=1
+      fi
+    else
+      post_code="skipped"
+    fi
+
     ask_code="$(curl -sS -o /dev/null -w '%{http_code}' "${ts_auth[@]}" \
       --get --data-urlencode 'query=ASK { }' "${TS_READ_URL}" || true)"
-    step "OpenGDB: POST ${ts_rest} -> HTTP ${post_code:-000}; SPARQL ASK -> HTTP ${ask_code:-000} (attempt $((attempt + 1))/${max_attempts})"
+    step "OpenGDB: SPARQL ASK -> HTTP ${ask_code:-000} (attempt $((attempt + 1))/${max_attempts})"
     if [ "${ask_code}" = "200" ]; then
-      rm -f "${ts_body}"
+      rm -f "${ts_body}" "${list_body}"
       ok "DEFAULT TRIPLESTORE REPOSITORY READY."
       return 0
     fi
@@ -374,9 +429,11 @@ ensure_default_triplestore() {
   done
 
   err "SPARQL ASK at ${TS_READ_URL} did not return HTTP 200."
-  step "Last POST ${ts_rest} body:"
-  cat "${ts_body}" 2>/dev/null || true
-  rm -f "${ts_body}"
+  if [ -s "${ts_body}" ]; then
+    step "Last POST ${ts_rest} body:"
+    cat "${ts_body}" 2>/dev/null || true
+  fi
+  rm -f "${ts_body}" "${list_body}"
   return 1
 }
 
@@ -394,6 +451,48 @@ wait_for_database() {
   err "Could not connect to database after ${max_attempts} attempts."
   echo "DB_HOST: ${DB_HOST}  DB_PORT: ${DB_PORT}  DB_USER: ${DB_USER}  DB_NAME: ${DB_NAME}"
   return 1
+}
+
+# Development: what the WissKI PHPUnit tests need from this container. The
+# browser, the file server and RDF4J are services of their own.
+prepare_phpunit() {
+  if ! is_development || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
+  # Tests run as `developer`. Drupal creates sites/simpletest/<id> itself but
+  # not the HTML output directory, and drops the page links without it.
+  install -d -o developer -g www-data -m 2775 \
+    /opt/drupal/web/sites/simpletest /opt/drupal/web/sites/simpletest/browser_output
+  ensure_test_database
+}
+
+# The database SIMPLETEST_DB points PHPUnit at. Drupal puts every test site
+# into prefixed tables there and, on PostgreSQL, needs pg_trgm as in the site
+# database. Failing here only costs the tests.
+ensure_test_database() {
+  if [ -z "${DB_TEST_NAME:-}" ] || [ "${DB_DRIVER}" != "pgsql" ]; then
+    return 0
+  fi
+  if ! [[ "${DB_TEST_NAME}" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+    warn "DB_TEST_NAME=${DB_TEST_NAME} is not a lowercase identifier; test database not created."
+    return 0
+  fi
+
+  local psql=(psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -v ON_ERROR_STOP=1 -qtA)
+  if [ "$(PGPASSWORD="${DB_PASSWORD}" "${psql[@]}" -d "${DB_NAME}" \
+    -c "SELECT 1 FROM pg_database WHERE datname = '${DB_TEST_NAME}'")" != "1" ]; then
+    step "CREATING TEST DATABASE ${DB_TEST_NAME}..."
+    if ! PGPASSWORD="${DB_PASSWORD}" "${psql[@]}" -d "${DB_NAME}" -c "CREATE DATABASE ${DB_TEST_NAME}"; then
+      warn "Could not create ${DB_TEST_NAME}; PHPUnit functional tests will not run."
+      return 0
+    fi
+  fi
+  if ! PGPASSWORD="${DB_PASSWORD}" PGOPTIONS='-c client_min_messages=warning' \
+    "${psql[@]}" -d "${DB_TEST_NAME}" -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm'; then
+    warn "Could not enable pg_trgm in ${DB_TEST_NAME}; PHPUnit functional tests will not run."
+    return 0
+  fi
+  ok "TEST DATABASE ${DB_TEST_NAME} READY."
 }
 
 # key_value_expire is created lazily on write. update_storage_clear() DELETEs
@@ -439,6 +538,23 @@ sync_salz_adapter_urls() {
     ok "SALZ ADAPTER ENDPOINTS SYNCED."
   else
     warn "SALZ adapter endpoint sync skipped."
+  fi
+}
+
+# wisski_mirador pins a release of the WissKI Mirador Integration library.
+# web/libraries is part of the image tree, so install or update the pinned
+# release on every start; the command does nothing when it is already there.
+# The if keeps a failed download from aborting the boot under set -e.
+ensure_mirador_library() {
+  if ! drush pm:list --status=enabled --type=module --field=name 2>/dev/null | grep -qx wisski_mirador; then
+    return 0
+  fi
+  step "ENSURE WISSKI MIRADOR LIBRARY."
+  # As www-data, so the status report's update form can replace it later.
+  if runuser -u www-data -- env XDEBUG_MODE=off drush --root=/opt/drupal wisski-mirador:wisski-mirador-integration; then
+    ok "WISSKI MIRADOR LIBRARY READY."
+  else
+    warn "WissKI Mirador library could not be installed; the viewer stays empty until it is (status report)."
   fi
 }
 
@@ -839,8 +955,10 @@ main() {
   ensure_wisski_dev_clone
   ensure_dev_group_write
   boot_site
+  prepare_phpunit
   sync_salz_adapter_urls
   apply_composer_extras
+  ensure_mirador_library
   start_services
 }
 

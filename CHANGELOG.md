@@ -8,7 +8,11 @@
 - MySQL/MariaDB drivers are gone from the image; PostgreSQL only.
 - Trusted hosts, private files path, Redis, and proxy settings now come from a generated `settings.docker.php`, rewritten on every start. Hand-edited values for these in `settings.php` are overridden.
 
+### Added
+- Development runs the WissKI PHPUnit suites, FunctionalJavascript included: the `chromedriver` (Selenium Chromium) and `static` (test file server) services, the test database `wisski_test` (`DB_TEST_NAME`) with `pg_trgm`, and the `SIMPLETEST_*` variables for this stack. Like GitLab CI, the development image also installs the packages WissKI suggests (`drupal/action`, `drupal/linkit`, `drupal/jquery_ui_accordion`, `league/csv`); without `drupal/action` (no longer in core 11) every test that enables all WissKI modules failed. The test database and `sites/simpletest/browser_output` need the new entrypoint: pull or rebuild the image and recreate (`docker compose up -d`).
+
 ### Changed
+- `wisski_mirador` uses the pinned WissKI Mirador Integration release. The image bakes `web/libraries/wisski-mirador-integration` from the version and checksum in `MiradorLibrary.php`, so it can start offline. On every start the entrypoint runs `drush wisski-mirador:wisski-mirador-integration` as `www-data`; that command does nothing when the pinned version is already installed, and a failed download does not stop the container. A development clone that pins a newer release is downloaded on the next start.
 - Much smaller images (development about 3.2 GB to 1.9 GB) and faster rebuilds: no recursive `chmod`/`chown` layers, PHP settings in `drupal/config/php/`.
 - Development tree is group-writable for `www-data` from build time; `wisski-composer` makes new packages editable right away.
 - The WissKI package version is pinned only by the Dockerfile `ARG`s; `.env` can still override it for local builds.
@@ -18,11 +22,13 @@
 - Smaller cleanups in the health check, Caddyfile, pgAdmin, and Apple Silicon override.
 
 ### Fixed
+- The Drupal entrypoint creates the OpenGDB repository only when `GET /rest/repositories` does not already list that slug. A SPARQL error no longer repeats `POST /rest/repositories`; each repeat inserted another Django row, permission creation hit `UNIQUE`, and SPARQL stayed at HTTP 500.
 - Development: functional tests (`BrowserTestBase`) failed with `mkdir(): Permission Denied`; `www-data` is now also in the `developer` group.
 - `opengdb` points at an upstream commit again, so `--recurse-submodules` works. Its authproxy fix is a patch in `patches/opengdb/`; run `docker compose build authproxy` once.
 - `PATH` keeps `/opt/drupal/vendor/bin` in login shells; shared VS Code settings and README statements corrected.
 
 ### Removed
+- `web/libraries/mirador-annotation-editor`. The Mirador block still uses `web/libraries/mirador`.
 - `restore-git-modes.sh`, `reverse-proxy.py`, `sync-reverse-proxy.sh`, and Python in the image.
 - Unused packages, config files (`drupal/config/apache/`, default repository TTLs), the `host.docker.internal` extra host, and dead Varnish VCL rules.
 
