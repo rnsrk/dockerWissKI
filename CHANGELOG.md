@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD)
+## [Unreleased](https://github.com/rnsrk/dockerWissKI/compare/7.0.0...HEAD)
+
+## [7.0.0](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...7.0.0) - 2026-10-14
 
 ### Breaking Changes
 - The codebase in `/opt/drupal` belongs to root. `www-data` can only write `web/sites`, `private-files`, custom modules/themes, and temp/log/cache. Pull the image and recreate: `docker compose up -d --force-recreate drupal`.
@@ -304,7 +306,8 @@ The merge of the `tuned` branch represents a comprehensive performance optimizat
 - **Caching improvements** via Redis and Varnish
 - **Production-ready** configuration for high-traffic Drupal/WissKI installations
 
-[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/6.1.0...HEAD
+[unreleased]: https://github.com/rnsrk/dockerWissKI/compare/7.0.0...HEAD
+[7.0.0]: https://github.com/rnsrk/dockerWissKI/compare/6.1.0...7.0.0
 [6.1.0]: https://github.com/rnsrk/dockerWissKI/compare/6.0.1...6.1.0
 [6.0.1]: https://github.com/rnsrk/dockerWissKI/compare/6.0.0...6.0.1
 [6.0.0]: https://github.com/rnsrk/dockerWissKI/compare/5.0.2...6.0.0
