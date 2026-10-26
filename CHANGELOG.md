@@ -7,6 +7,9 @@
 - The development image installs `gettext`, so `msgfmt -c` can check WissKI `.po` translation files. Pull or rebuild the image.
 - The development image installs the GitHub CLI (`gh`) from GitHub's apt repository. Pull or rebuild the image.
 
+### Fixed
+- Development: WissKI tests that `SPARQL LOAD` fixtures from `static` failed because RDF4J sent the request through the OpenGDB outproxy, which blocks private addresses. RDF4J now reaches `static` and `drupal` directly; every other host still goes through the proxy. Recreate `rdf4j` (`docker compose up -d rdf4j`).
+
 ## [7.0.0](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...7.0.0) - 2026-10-14
 
 ### Breaking Changes

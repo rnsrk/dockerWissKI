@@ -48,6 +48,14 @@ services:
     read_only: true
     restart: unless-stopped
 
+  # The OpenGDB outproxy blocks private addresses, so SPARQL LOAD from static
+  # failed in the tests. Only the test hosts static and drupal bypass it;
+  # every other host still goes through the proxy. catalina.sh evals
+  # JAVA_OPTS, so the | list needs the quotes.
+  rdf4j:
+    environment:
+      JAVA_OPTS: -Xms${RDF4J_HEAP_MIN:-256m} -Xmx${RDF4J_HEAP_MAX:-1g} -Dhttp.nonProxyHosts="static|drupal" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
+
 volumes:
   wisski-module:
   wisski-scs-base:
