@@ -4,6 +4,8 @@
 
 ### Added
 - Development keeps a read-only WissKI clone on the `scs_base` branch at `/opt/drupal/repos/wisski` (volume `wisski-scs-base`), so `8.x-4.x` work can always be compared with `scs_base`. The entrypoint clones it over HTTPS when the volume is empty; a failed clone does not stop the container. Needs the new entrypoint: pull or rebuild the image and recreate (`docker compose up -d`).
+- The development image installs `gettext`, so `msgfmt -c` can check WissKI `.po` translation files. Pull or rebuild the image.
+- The development image installs the GitHub CLI (`gh`) from GitHub's apt repository. Pull or rebuild the image.
 
 ## [7.0.0](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...7.0.0) - 2026-10-14
 

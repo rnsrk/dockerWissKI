@@ -105,7 +105,8 @@ ARG WISSKI_PACKAGES_LINE=4.x
 # Runtime packages only (no autoconf, lib*-dev, or other build toolchain).
 # iipsrv, Redis, and the triplestore run in separate processes/containers.
 # Development images also get operator CLI helpers (rg, fd, jq, ssh, …) so
-# docker exec / agent searches and git@ remotes work without "command not found".
+# docker exec / agent searches and git@ remotes work without "command not found";
+# gettext provides msgfmt for checking WissKI .po translations.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -144,6 +145,7 @@ RUN set -eux; \
     ca-certificates \
     fd-find \
     file \
+    gettext \
     gnupg \
     jq \
     less \
@@ -168,6 +170,20 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends nodejs; \
     npm install -g corepack cspell; \
     npm cache clean --force; \
+    rm -rf /var/lib/apt/lists/*
+
+# GitHub CLI (development only) from the official apt repository; Debian
+# bookworm's gh package is too old for current GitHub APIs.
+RUN set -eux; \
+    if [ "$MODE" != "development" ]; then \
+    exit 0; \
+    fi; \
+    install -d -m 0755 /etc/apt/keyrings; \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg; \
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends gh; \
     rm -rf /var/lib/apt/lists/*
 
 # Compiled PHP extensions, their enablement snippets, and the iipsrv binary.
