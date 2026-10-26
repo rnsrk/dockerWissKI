@@ -35,6 +35,7 @@ SITE_PACKAGES_VERSION_FILE="/opt/drupal/web/sites/.wisski-packages-version"
 DRUPAL_PRIVATE_FILES_DIR="${DRUPAL_PRIVATE_FILES_DIR:-/opt/drupal/private-files}"
 
 WISSKI_MODULE_DIR="/opt/drupal/web/modules/contrib/wisski"
+WISSKI_SCS_BASE_DIR="/opt/drupal/repos/wisski"
 
 # --- Log helpers -------------------------------------------------------------
 step() { echo -e "\033[0;33m$*\033[0m"; }
@@ -180,17 +181,21 @@ ensure_dev_group_write() {
 # branches, remotes, vendor/ and node_modules/ survive recreation and image
 # pulls. Docker seeds an empty named volume from the image; an empty host bind
 # is cloned here at the commit the image was built with.
-seed_wisski_clone() {
-  local packageSource url ref tmp
-  packageSource="$(php -r '
+# Prints "<git url> <commit>" of the drupal/wisski package the image installed.
+wisski_package_source() {
+  php -r '
     $installed = json_decode((string) file_get_contents("/opt/drupal/vendor/composer/installed.json"), true);
     foreach ($installed["packages"] ?? [] as $package) {
       if ($package["name"] === "drupal/wisski" && isset($package["source"]["url"])) {
         echo $package["source"]["url"], " ", $package["source"]["reference"] ?? "";
       }
     }
-  ')"
-  read -r url ref <<< "${packageSource}"
+  '
+}
+
+seed_wisski_clone() {
+  local url ref tmp
+  read -r url ref <<< "$(wisski_package_source)"
   if [ -z "${url}" ]; then
     err "${WISSKI_MODULE_DIR} is empty and the image has no WissKI source URL to clone from."
     return 1
@@ -241,6 +246,41 @@ ensure_wisski_dev_clone() {
     echo "PHPStan then aborts with \"Cannot redeclare t()\". The lint and test tools are in /opt/drupal/vendor;"
     echo "remove ${WISSKI_MODULE_DIR}/vendor so misc/scripts/*.sh use them."
   fi
+}
+
+# Read-only scs_base clone that the agent skills compare 8.x-4.x work against
+# (compare-scs-base, issue-solve). It sits on its own volume; a missing clone is
+# cloned here. Without network the container still starts, only the compare
+# falls back to `git show origin/scs_base` in the work clone.
+ensure_wisski_scs_base_clone() {
+  local url tmp
+  if ! is_development || ! id developer >/dev/null 2>&1; then
+    return 0
+  fi
+
+  mkdir -p "${WISSKI_SCS_BASE_DIR}"
+  chown developer:www-data "${WISSKI_SCS_BASE_DIR}"
+  if [ -d "${WISSKI_SCS_BASE_DIR}/.git" ]; then
+    return 0
+  fi
+
+  read -r url _ <<< "$(wisski_package_source)"
+  if [ -z "${url}" ]; then
+    warn "No WissKI source URL in the image; ${WISSKI_SCS_BASE_DIR} stays empty."
+    return 0
+  fi
+
+  step "CLONING WISSKI scs_base INTO ${WISSKI_SCS_BASE_DIR}..."
+  tmp="$(mktemp -d /tmp/wisski-scs-base.XXXXXX)"
+  chown developer "${tmp}"
+  # HTTPS without the system gitconfig, as in seed_wisski_clone: no keys needed.
+  if su developer -s /bin/bash -c "GIT_CONFIG_NOSYSTEM=1 git clone --quiet --branch scs_base '${url}' '${tmp}/wisski'"; then
+    cp -a "${tmp}/wisski/." "${WISSKI_SCS_BASE_DIR}/"
+    ok "WISSKI scs_base CLONED."
+  else
+    warn "Could not clone scs_base from ${url}; ${WISSKI_SCS_BASE_DIR} stays empty until the next start."
+  fi
+  rm -rf "${tmp}"
 }
 
 # --- Settings generated from the environment --------------------------------
@@ -953,6 +993,7 @@ main() {
   validate_environment
   prepare_volumes
   ensure_wisski_dev_clone
+  ensure_wisski_scs_base_clone
   ensure_dev_group_write
   boot_site
   prepare_phpunit

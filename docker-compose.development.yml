@@ -28,6 +28,9 @@ services:
       # update the clone with git. A host bind on the same path in
       # docker-compose.override.yml replaces this volume.
       - wisski-module:/opt/drupal/web/modules/contrib/wisski
+      # Read-only scs_base clone for comparing 8.x-4.x work (agent skills
+      # compare-scs-base / issue-solve). The entrypoint clones it once.
+      - wisski-scs-base:/opt/drupal/repos/wisski
     labels:
       # Attach Cursor / VS Code / Claude Code as `developer` (not root). PID 1 stays root.
       devcontainer.metadata: '[{"remoteUser":"developer","workspaceFolder":"/opt/drupal/web/modules/contrib/wisski"}]'
@@ -47,3 +50,4 @@ services:
 
 volumes:
   wisski-module:
+  wisski-scs-base:

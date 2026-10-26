@@ -96,6 +96,8 @@ In development, `web/modules/contrib/wisski` is a git clone on the named volume 
 
 A host clone bind-mounted on the same path in `docker-compose.override.yml` replaces the volume (see `WISSKI_HOST_PATH`). If that host directory is empty, the entrypoint clones WissKI into it at the commit the image was built with.
 
+A second clone on the `scs_base` branch sits at `/opt/drupal/repos/wisski` (volume `wisski-scs-base`). It is the read-only reference for comparing `8.x-4.x` work with `scs_base`. If the volume has no clone, the entrypoint clones one over HTTPS on start; without network the container still starts and tries again on the next start. Update it with `git fetch` inside the clone; do not edit or commit there.
+
 The lint and test tools follow the Drupal GitLab CI layout. The PHP tools (WissKI `require-dev` plus `drupal/core-dev` at the installed core version, which brings `phpstan-phpunit`, `behat/mink`, and `prophecy-phpunit`) are in `/opt/drupal/vendor/bin`. `misc/scripts/*.sh` fall back to them through `PATH`. Login shells reset `PATH` in `/etc/profile`; `/etc/profile.d/wisski-path.sh` puts that directory back. The JS tools are in the clone's `node_modules/`. The entrypoint runs `yarn install` when they are missing. Do not run `composer install` inside the clone: `drupal/potx` pulls a second `drupal/core` into the clone's `vendor/`, and PHPStan then aborts with `Cannot redeclare t()`. The entrypoint warns when it finds one.
 
 ### WissKI tests (development)
@@ -260,6 +262,7 @@ The Drupal codebase belongs to the image: a new container always starts from the
 | Drupal core, WissKI, image packages | Image | Pull a new image |
 | WissKI lint and test tools (phpcs, phpstan, `drupal/core-dev`, cspell) | Development image | baked at build; do not put in `composer.local.json` |
 | WissKI git clone (development) | volume `wisski-module` | seeded from the image once; update with git |
+| WissKI `scs_base` reference clone (development) | volume `wisski-scs-base` at `/opt/drupal/repos/wisski` | cloned on start if missing; update with `git fetch` |
 | Extra Composer packages (contrib modules, libraries) | `web/sites/composer.local.json` on the sites volume | `docker compose exec drupal wisski-composer require drupal/webform:^6.2` |
 | Custom modules | volume `web/modules/custom` | copy or bind-mount your code |
 | Custom themes | volume `web/themes/custom` | copy or bind-mount your code |
