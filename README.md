@@ -184,7 +184,6 @@ env/development.env                     # copy to .env for development
 env/production.env                      # copy to .env for production
 drupal/                                 # PHP 8.5 FPM image (Dockerfile, entrypoint, PHP/Nginx)
 opengdb/                                # git submodule (FAU-CDI/open_gdb)
-patches/opengdb/                        # patch for the OpenGDB authproxy, applied at build time
 wisski_data_importer/                   # git submodule (optional importer UI)
 config/caddy/Caddyfile                  # Caddy Host routes
 config/postgres/                        # Postgres init (pg_trgm)
@@ -229,7 +228,36 @@ git submodule update --remote opengdb
 
 Pin the new submodule commit in this repository when it works.
 
-The authproxy is built from the unchanged submodule and then patched with the files in [`patches/opengdb/`](patches/opengdb/) (`docker compose build authproxy`). The patch stops a refused RDF4J `PUT` from deleting an existing repository; [its README](patches/opengdb/README.md) has the details and the text for the upstream pull request. If a submodule update makes the patch fail to apply, check whether upstream already contains the fix.
+`authproxy` and `rdf4j` are built from the submodule (`docker compose build authproxy rdf4j`). The `rdf4j` image is the RDF4J 6.1.0 image plus the OpenGDB change log Sail; without a repository that uses the Sail it behaves like the stock image.
+
+## Triplestore change log (WissKI 5)
+
+OpenGDB can record every committed triplestore change in a reserved graph of the repository (`tag:fau-cdi.github.io,2026:opengdb/changelog`). WissKI 5 reads it to refresh only the cached output a change affects, also after SPARQL updates that bypass WissKI. The details are in the [OpenGDB README](opengdb/README.md#change-log); design and performance in [opengdb/docs/change-log.md](opengdb/docs/change-log.md).
+
+**The log is off, and stays off for WissKI 4.** WissKI 4 does not know the log graph: deleting recently edited entities, merging, the reference dialog and re-importing `drush wisski-salz:export-nquads` dumps fail on a repository with the log. Switch it on only after updating the site to WissKI 5:
+
+```bash
+# New repositories get the log:
+echo RDF4J_CHANGELOG=1 >> .env
+docker compose up -d authproxy
+
+# The existing repository (keeps its data and triple indexes):
+docker compose exec authproxy python manage.py enable_changelog --all --dry-run
+docker compose exec authproxy python manage.py enable_changelog --all
+docker compose restart rdf4j
+# Check: the config shows opengdb:ChangeLogSail; the data size is unchanged
+docker compose exec authproxy wget -qO- http://rdf4j:8080/rdf4j-server/repositories/default/config
+```
+
+Back to the plain store, for example to return to WissKI 4:
+
+```bash
+docker compose exec authproxy python manage.py disable_changelog --all
+docker compose restart rdf4j
+docker compose exec authproxy python manage.py disable_changelog --all --purge-log
+```
+
+Once WissKI 5 ships its change log consumer, the setup will switch on the adapter setting with an environment variable on `drupal`.
 
 ## WissKI Data Importer
 

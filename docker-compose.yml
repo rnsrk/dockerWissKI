@@ -199,9 +199,15 @@ services:
           cpus: "0.25"
           memory: 256M
 
-  # Overlay OpenGDB rdf4j: pin RDF4J 6 (Tomcat), fix volume UID, cap heap, wait until the protocol is up.
+  # Overlay OpenGDB rdf4j: RDF4J 6 (Tomcat) with the OpenGDB change log Sail, built from the
+  # submodule; fix volume UID, cap heap, wait until the protocol is up. The change log stays off
+  # until RDF4J_CHANGELOG=1 or enable_changelog; it needs WissKI 5.
   rdf4j:
-    image: eclipse/rdf4j-workbench:6.1.0-tomcat
+    build:
+      context: ./opengdb/rdf4j
+      args:
+        RDF4J_VERSION: 6.1.0
+    image: dockerwisski-rdf4j
     user: "0:0"
     environment:
       JAVA_OPTS: -Xms${RDF4J_HEAP_MIN:-256m} -Xmx${RDF4J_HEAP_MAX:-1g} -Dhttp.nonProxyHosts="" -Dhttp.proxyHost=outproxy -Dhttp.proxyPort=8080 -Dhttps.proxyHost=outproxy -Dhttps.proxyPort=8080
@@ -239,22 +245,9 @@ services:
       outproxy:
         condition: service_started
 
-  # Upstream authproxy, built unchanged from the opengdb submodule. Only the
-  # base of the patched authproxy below: scale 0, so it never starts.
-  authproxy-upstream:
+  authproxy:
     build:
       context: ./opengdb/authproxy
-    image: dockerwisski-authproxy-upstream
-    scale: 0
-
-  authproxy:
-    # Upstream authproxy plus patches/opengdb/*.patch, so RDF4J 6 PUT answers
-    # (201 / already-exists) keep the Django repository row. Drop the patch
-    # once upstream has it (see patches/opengdb/README.md).
-    build:
-      context: ./patches/opengdb
-      additional_contexts:
-        upstream: service:authproxy-upstream
     image: dockerwisski-authproxy
     # OpenGDB uWSGI logs every SPARQL query string to stdout. Keep 4xx/5xx.
     command:

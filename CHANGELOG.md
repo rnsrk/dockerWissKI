@@ -6,6 +6,10 @@
 - Development keeps a read-only WissKI clone on the `scs_base` branch at `/opt/drupal/repos/wisski` (volume `wisski-scs-base`), so `8.x-4.x` work can always be compared with `scs_base`. The entrypoint clones it over HTTPS when the volume is empty; a failed clone does not stop the container. Needs the new entrypoint: pull or rebuild the image and recreate (`docker compose up -d`).
 - The development image installs `gettext`, so `msgfmt -c` can check WissKI `.po` translation files. Pull or rebuild the image.
 - The development image installs the GitHub CLI (`gh`) from GitHub's apt repository. Pull or rebuild the image.
+- `rdf4j` is built from the `opengdb` submodule and contains the OpenGDB change log Sail, which records triplestore changes for WissKI 5. The log is off: new repositories get it only with `RDF4J_CHANGELOG=1`, existing ones with `enable_changelog`; WissKI 4 must not use it (see "Triplestore change log" in the README). Run `docker compose build rdf4j authproxy` and recreate them (`docker compose up -d`).
+
+### Changed
+- `authproxy` is built from the `opengdb` submodule again; `patches/opengdb/` is gone. Its `create_remote()` keeps the Django row when RDF4J answers 201, or 409 for an existing repository, and reports every other error with the HTTP status.
 
 ### Fixed
 - Development: WissKI tests that `SPARQL LOAD` fixtures from `static` failed because RDF4J sent the request through the OpenGDB outproxy, which blocks private addresses. RDF4J now reaches `static` and `drupal` directly; every other host still goes through the proxy. Recreate `rdf4j` (`docker compose up -d rdf4j`).
