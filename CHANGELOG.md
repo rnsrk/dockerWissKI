@@ -9,6 +9,7 @@
 - `rdf4j` is built from the `opengdb` submodule and contains the OpenGDB change log Sail, which records triplestore changes for WissKI 5. The log is off: new repositories get it only with `RDF4J_CHANGELOG=1`, existing ones with `enable_changelog`; WissKI 4 must not use it (see "Triplestore change log" in the README). Run `docker compose build rdf4j authproxy` and recreate them (`docker compose up -d`).
 
 ### Changed
+- SPARQL through authproxy is much faster: authproxy remembers a successful HTTP Basic login for `BASIC_AUTH_CACHE_SECONDS` (default 300) instead of running Django's slow password hash on every request. A SPARQL query went from about 145 ms to 9 ms. WissKI keeps its Basic credentials; nothing to change. Run `docker compose build authproxy` and recreate it.
 - `authproxy` is built from the `opengdb` submodule again; `patches/opengdb/` is gone. Its `create_remote()` keeps the Django row when RDF4J answers 201, or 409 for an existing repository, and reports every other error with the HTTP status.
 
 ### Fixed
