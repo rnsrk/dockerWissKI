@@ -44,9 +44,12 @@ services:
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.cursor-server/data/Machine/settings.json:ro
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/vscode-machine-settings.json:/home/developer/.vscode-server/data/Machine/settings.json:ro
       #
-      # Optional Cursor rules / skills / agents that apply only inside the attached container:
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/home/developer/.cursor/rules:ro
-      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/skills:/home/developer/.cursor/skills:ro
+      # Optional Cursor rules / agents that apply only inside the attached container.
+      # Cursor loads .mdc rules only from the opened workspace (it does not read
+      # ~/.cursor/rules), so they bind into the WissKI clone, where .cursor is
+      # gitignored. Cursor also reads skills and agents from ~/.claude; a
+      # ~/.cursor/agents file wins over a ~/.claude/agents file of the same name.
+      # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/rules:/opt/drupal/web/modules/contrib/wisski/.cursor/rules:ro
       # - ${CONTAINER_DEV_PATH:-./.container-dev}/cursor/agents:/home/developer/.cursor/agents:ro
       #
       # Optional Claude Code rules / skills / agents / settings.json (convert

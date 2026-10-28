@@ -61,7 +61,7 @@ Drupal concurrency is set in `.env` (recreate the container after changing):
 
 IEF subentity forms and SALZ adapters spend most of their time in SPARQL, not Drupal SQL. Raising `DRUPAL_CPUS` without `RDF4J_CPUS` / `RDF4J_HEAP_MAX` does not speed those up. Raising nginx workers without `DRUPAL_CPUS` / `PHP_FPM_MAX_CHILDREN` does not speed Drupal up. SPARQL can approach 1G per PHP child, so keep `PHP_FPM_MAX_CHILDREN` in line with `DRUPAL_MEMORY`. Recreate the service after changing these (`docker compose up -d`).
 
-Development enables OPcache with timestamp checks so bind-mounted WissKI still live-reloads. Xdebug stays in trigger mode; set `XDEBUG_MODE=off` in `.env` (and recreate Drupal) if you are not debugging — the extension still costs CPU while `mode=debug`.
+Development enables OPcache with timestamp checks so bind-mounted WissKI still live-reloads. It also compiles and runs PHP `assert()` (`zend.assertions = 1`, `assert.exception = 1`); production strips asserts. Xdebug stays in trigger mode; set `XDEBUG_MODE=off` in `.env` (and recreate Drupal) if you are not debugging — the extension still costs CPU while `mode=debug`.
 
 Apple Silicon: append `docker-compose.apple-silicon.yml` to `COMPOSE_FILE` in `.env`. Local Drupal image build: append `docker-compose.local-build.yml`. WissKI Data Importer UI: append `docker-compose.importer.yml` (before `docker-compose.proxy.yml`) and `git submodule update --init wisski_data_importer`. Machine-local tweaks: copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (gitignored) and append that file last.
 
@@ -234,7 +234,7 @@ Pin the new submodule commit in this repository when it works.
 
 OpenGDB can record every committed triplestore change in a reserved graph of the repository (`tag:fau-cdi.github.io,2026:opengdb/changelog`). WissKI 5 reads it to refresh only the cached output a change affects, also after SPARQL updates that bypass WissKI. The details are in the [OpenGDB README](opengdb/README.md#change-log); design and performance in [opengdb/docs/change-log.md](opengdb/docs/change-log.md).
 
-**The log is off, and stays off for WissKI 4.** WissKI 4 does not know the log graph: deleting recently edited entities, merging, the reference dialog and re-importing `drush wisski-salz:export-nquads` dumps fail on a repository with the log. Switch it on only after updating the site to WissKI 5:
+**The log is off by default.** Queries that don't name the log graph don't see it (`GRAPH ?g`, the default graph, `/contexts`, `/size`, exports), so deleting and merging entities or N-Quads dumps work as without it, also on WissKI 4. Only WissKI 5 reads it. Switch it on:
 
 ```bash
 # New repositories get the log:
@@ -249,7 +249,7 @@ docker compose restart rdf4j
 docker compose exec authproxy wget -qO- http://rdf4j:8080/rdf4j-server/repositories/default/config
 ```
 
-Back to the plain store, for example to return to WissKI 4:
+Back to the plain store:
 
 ```bash
 docker compose exec authproxy python manage.py disable_changelog --all
@@ -257,7 +257,7 @@ docker compose restart rdf4j
 docker compose exec authproxy python manage.py disable_changelog --all --purge-log
 ```
 
-Once WissKI 5 ships its change log consumer, the setup will switch on the adapter setting with an environment variable on `drupal`.
+WissKI 5 reads the log once an adapter's **Triplestore change log** is set to **OpenGDB change log** (*Configuration → WissKI Salz Adapters*); the setup doesn't set it yet.
 
 ## WissKI Data Importer
 

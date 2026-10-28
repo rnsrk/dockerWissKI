@@ -201,7 +201,7 @@ services:
 
   # Overlay OpenGDB rdf4j: RDF4J 6 (Tomcat) with the OpenGDB change log Sail, built from the
   # submodule; fix volume UID, cap heap, wait until the protocol is up. The change log stays off
-  # until RDF4J_CHANGELOG=1 or enable_changelog; it needs WissKI 5.
+  # until RDF4J_CHANGELOG=1 or enable_changelog; only WissKI 5 reads it.
   rdf4j:
     build:
       context: ./opengdb/rdf4j
