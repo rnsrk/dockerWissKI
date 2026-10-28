@@ -3,6 +3,11 @@
 # Optional overlays: docker-compose.proxy.yml, docker-compose.importer.yml,
 # docker-compose.local-build.yml, docker-compose.apple-silicon.yml,
 # docker-compose.override.yml (gitignored).
+#
+# Project name (= prefix for containers, networks, volumes) comes from
+# COMPOSE_PROJECT_NAME in .env. The top-level name: below is only the
+# fallback when that variable is unset. Changing the project name creates
+# new empty volumes; rename or copy the old ones if you need the data.
 
 name: dockerwisski
 

@@ -195,7 +195,7 @@ docs/                                   # IDE attach guide, example composer.loc
 drupal/config/                          # PHP, Nginx, Redis baked into the image
 ```
 
-`.env` sets `COMPOSE_FILE` and `MODE`. With `COMPOSE_FILE` set, Compose loads **exactly** those files (no implicit `docker-compose.override.yml` merge). The presets are:
+`.env` sets `COMPOSE_PROJECT_NAME`, `COMPOSE_FILE`, and `MODE`. `COMPOSE_PROJECT_NAME` is the prefix for every container, network, and volume (`local-wisski-dev-drupal-1`, `local-wisski-dev_postgres-data`, …). Change it only before the first `up`, or rename/copy the volumes if you need the old data. With `COMPOSE_FILE` set, Compose loads **exactly** those files (no implicit `docker-compose.override.yml` merge). The presets are:
 
 | Preset | `COMPOSE_FILE` |
 | --- | --- |
