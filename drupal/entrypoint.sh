@@ -550,6 +550,21 @@ ensure_key_value_expire() {
   ' >/dev/null
 }
 
+# Drupal 11.4's standard profile no longer creates the Basic page and Article
+# content types; core ships them as recipes. The default data model recipe
+# needs Basic page, and sites installed before had both.
+ensure_basic_content_types() {
+  local type
+  for type in page article; do
+    if drush php-eval "exit(\\Drupal\\node\\Entity\\NodeType::load('${type}') ? 0 : 1);" >/dev/null 2>&1; then
+      continue
+    fi
+    step "CREATE CONTENT TYPE ${type}."
+    drush recipe "core/recipes/${type}_content_type" >/dev/null
+    ok "CONTENT TYPE ${type} CREATED."
+  done
+}
+
 # Keep the default SALZ adapter on TS_READ_URL / TS_WRITE_URL (authproxy, not OpenGDB nginx).
 sync_salz_adapter_urls() {
   if [ ! -f "${SETTINGS_FILE}" ]; then
@@ -758,6 +773,7 @@ install_site() {
     --yes 2>&1; then
     ok "DRUPAL SITE \"${DRUPAL_SITE_NAME}\" INSTALLED."
     ensure_key_value_expire
+    ensure_basic_content_types
   else
     err "Drupal installation failed or timed out after 5 minutes."
     echo "Check database connection and credentials."

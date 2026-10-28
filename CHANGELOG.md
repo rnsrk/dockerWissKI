@@ -14,6 +14,7 @@
 - `authproxy` is built from the `opengdb` submodule again; `patches/opengdb/` is gone. Its `create_remote()` keeps the Django row when RDF4J answers 201, or 409 for an existing repository, and reports every other error with the HTTP status.
 
 ### Fixed
+- New sites failed to install on Drupal 11.4 in the WissKI Default Data Model recipe (`Missing bundle entity … node_type … page`): Drupal 11.4's standard profile no longer creates the Basic page and Article content types. The entrypoint now applies core's `page_content_type` and `article_content_type` recipes after `drush si` when the types are missing. Existing sites are not touched. Pull or rebuild the image.
 - Development: WissKI tests that `SPARQL LOAD` fixtures from `static` failed because RDF4J sent the request through the OpenGDB outproxy, which blocks private addresses. RDF4J now reaches `static` and `drupal` directly; every other host still goes through the proxy. Recreate `rdf4j` (`docker compose up -d rdf4j`).
 
 ## [7.0.0](https://github.com/rnsrk/dockerWissKI/compare/6.1.0...7.0.0) - 2026-10-14
