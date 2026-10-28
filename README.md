@@ -259,6 +259,8 @@ docker compose exec authproxy python manage.py disable_changelog --all --purge-l
 
 WissKI 5 reads the log once an adapter's **Triplestore change log** is set to **OpenGDB change log** (*Configuration → WissKI Salz Adapters*); the setup doesn't set it yet.
 
+The log keeps the last 2000 changes (`cl:slots`). That is plenty for editing in the browser, because WissKI reads the log after every request. Imports through Drush or scripts write about 4 records per new entity and nothing reads the log in between; if WissKI falls further behind, it refreshes whole bundles instead of single entities. How many slots a site needs and how to raise them on an existing repository: [How many slots](opengdb/README.md#how-many-slots) in the OpenGDB README.
+
 ## WissKI Data Importer
 
 Optional UI for CSV → Pathbuilder → WissKI import. It is a **separate app** (own Postgres and Redis), not a Drupal module.
